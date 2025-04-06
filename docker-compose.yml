@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      container_name: imageBot-database
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    env_file:
+      - .env
+
+  web:
+    build: .
+    container_name: imageBot-docker
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./media:/app/media
+    environment:
+      DJANGO_SECRET_KEY: ${SECRET_KEY}
+      DEBUG: ${DEBUG}
+      DB_ENGINE: ${DB_ENGINE}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+    env_file:
+      - .env
+
+  tgbot:
+    build: .
+    working_dir: /app
+    command: python tgbot/main.py
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+      - db
+    environment:
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+    env_file:
+      - .env
+
+
+volumes:
+  postgres_data:
