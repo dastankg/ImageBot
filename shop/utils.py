@@ -26,7 +26,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
                 [
                     post.id,
                     shop.shop_name,
-                    'http://139.59.2.151:8000/media'+str(post.image),
+                    'http://139.59.2.151:8000/media/'+str(post.image),
                     post.created.strftime("%Y-%m-%d %H:%M:%S"),
                 ]
             )
