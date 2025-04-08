@@ -30,6 +30,8 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     post.created.strftime("%Y-%m-%d %H:%M:%S"),
                 ]
             )
+        ws.append([])
+        ws.append([])
 
     wb.save(response)
     return response
