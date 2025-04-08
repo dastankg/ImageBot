@@ -62,7 +62,7 @@ ImageBot - это система, состоящая из Telegram-бота и �
 
 3. Запустите проект с помощью Docker Compose:
     ```bash
-    bashCopydocker-compose up -d
+    docker-compose up -d
 
 4. Проект будет доступен:
 
