@@ -10,7 +10,7 @@ from django.conf import settings
 from post.models import Post
 from shop.models import Shop
 from tguser.models import TgUser
-
+from shop.models import Telephone
 logger = logging.getLogger(__name__)
 
 
@@ -18,13 +18,15 @@ logger = logging.getLogger(__name__)
 def get_shop_by_phone(phone_number: str) -> Optional[Shop]:
     try:
         phone_number = str(phone_number).replace("+", "").strip()
-        return Shop.objects.get(telephone=phone_number)
-    except Shop.DoesNotExist:
+        telephone = Telephone.objects.select_related('shop').get(number=phone_number)
+        return telephone.shop
+    except Telephone.DoesNotExist:
         logger.warning(f"Shop not found for phone: {phone_number}")
         return None
     except Exception as e:
         logger.error(f"Error getting shop by phone: {e}")
         return None
+
 
 
 @sync_to_async

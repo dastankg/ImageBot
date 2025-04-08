@@ -17,8 +17,6 @@ from tgbot.handlers.utils import (
 router = Router()
 logger = logging.getLogger(__name__)
 
-
-# Клавиатуры
 def get_contact_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[[KeyboardButton(text="Поделиться контактом", request_contact=True)]],
@@ -37,7 +35,6 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-# Обработчики команд
 @router.message(CommandStart())
 async def cmd_start(message: Message):
     await message.answer(
@@ -85,7 +82,6 @@ async def cmd_profile(message: Message):
         )
 
 
-# Обработчики сообщений
 @router.message(F.content_type == ContentType.CONTACT)
 async def handle_contact(message: Message):
     contact = message.contact
@@ -98,6 +94,7 @@ async def handle_contact(message: Message):
 
     try:
         await save_user_profile(telegram_id, phone_number)
+
         shop = await get_shop_by_phone(phone_number)
 
         if shop:
@@ -117,6 +114,7 @@ async def handle_contact(message: Message):
         await message.answer(
             "Произошла ошибка при проверке вашего номера. Пожалуйста, попробуйте позже."
         )
+
 
 
 @router.message(F.content_type == ContentType.PHOTO)
