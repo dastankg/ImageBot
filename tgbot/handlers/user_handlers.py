@@ -26,10 +26,9 @@ router = Router()
 logger = logging.getLogger(__name__)
 
 
-
-
 @router.message(CommandStart())
 async def cmd_start(message: Message, state: FSMContext):
+    logger.info(f"/start от {message.from_user.id} ({message.from_user.full_name})")
     await message.answer(
         "👋 Привет! Я бот для загрузки фотографий магазинов.\n\n"
         "Для начала работы, пожалуйста, поделитесь своим контактом, "
@@ -84,7 +83,7 @@ async def handle_contact(message: Message, state: FSMContext):
     contact = message.contact
     phone_number = contact.phone_number
     telegram_id = message.from_user.id
-
+    logger.info(f"Контакт от {telegram_id}: {phone_number}")
     if contact.user_id != telegram_id:
         await message.answer("Пожалуйста, отправьте свой собственный контакт.")
         return
@@ -92,7 +91,6 @@ async def handle_contact(message: Message, state: FSMContext):
     try:
         await save_user_profile(telegram_id, phone_number)
 
-        # Set phone number in FSM state data
         await state.update_data(phone=phone_number)
         await state.set_state(UserState.authorized)
 
@@ -149,15 +147,13 @@ async def handle_location(message: Message, state: FSMContext):
 @router.message(F.content_type == ContentType.PHOTO)
 async def handle_photo(message: Message, bot: Bot, state: FSMContext):
     telegram_id = message.from_user.id
+    logger.info(f"Получено фото от user_id={telegram_id}")
 
     try:
         user_profile = await get_user_profile(telegram_id)
         if not user_profile:
-            await message.answer(
-                "Для загрузки фотографий необходимо авторизоваться. "
-                "Пожалуйста, поделитесь своим контактом.",
-                reply_markup=get_contact_keyboard(),
-            )
+            logger.warning(f"Неизвестный пользователь: {telegram_id}")
+            await message.answer("Авторизуйтесь.")
             await state.set_state(UserState.unauthorized)
             return
 
@@ -165,19 +161,15 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         location = state_data.get("location")
 
         if not location:
-            await message.answer(
-                "Сначала необходимо отправить геолокацию.",
-                reply_markup=get_location_keyboard(),
-            )
+            logger.info(f"Нет геолокации для user_id={telegram_id}")
+            await message.answer("Сначала отправьте геолокацию.")
             await state.set_state(UserState.waiting_for_location)
             return
 
         shop = await get_shop_by_phone(user_profile["phone_number"])
         if not shop:
-            await message.answer(
-                "К сожалению, ваш номер телефона не найден в системе магазинов. "
-                "Обратитесь к администратору."
-            )
+            logger.warning(f"Магазин не найден: phone={user_profile['phone_number']}")
+            await message.answer("Ваш магазин не зарегистрирован.")
             return
 
         photo = message.photo[-1]
@@ -185,15 +177,9 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         file = await bot.get_file(file_id)
         file_path = file.file_path
 
-        bot_token = os.getenv("BOT_TOKEN")
-        if not bot_token:
-            await message.answer(
-                "Ошибка конфигурации сервера. Обратитесь к администратору."
-            )
-            logger.error("TG_TOKEN not found in environment variables!")
-            return
+        logger.info(f"Загрузка фото от {telegram_id}: file_id={file_id}, path={file_path}")
 
-        file_url = f"https://api.telegram.org/file/bot{bot_token}/{file_path}"
+        file_url = f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
         filename = f"{uuid.uuid4().hex}.jpg"
 
         status_message = await message.answer("⏳ Загрузка фотографии...")
@@ -207,6 +193,8 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
                 longitude=location["longitude"],
             )
 
+            logger.info(f"Фото сохранено: {filename} для магазина {shop.shop_name}")
+
             await state.update_data(location=None)
             await state.set_state(UserState.authorized)
 
@@ -216,23 +204,19 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
                 message_id=status_message.message_id,
             )
 
-            await message.answer(
-                "Что бы вы хотели сделать дальше?", reply_markup=get_main_keyboard()
-            )
+            await message.answer("Что дальше?", reply_markup=get_main_keyboard())
 
         except Exception as e:
-            logger.error(f"Error saving photo: {e}")
+            logger.exception(f"Ошибка при сохранении фото от {telegram_id}")
             await bot.edit_message_text(
-                "❌ Произошла ошибка при сохранении фотографии. Пожалуйста, попробуйте позже.",
+                "❌ Ошибка при сохранении фото.",
                 chat_id=status_message.chat.id,
                 message_id=status_message.message_id,
             )
 
     except Exception as e:
-        logger.error(f"Uncaught error in handle_photo: {e}")
-        await message.answer(
-            "Произошла неизвестная ошибка. Пожалуйста, попробуйте позже."
-        )
+        logger.exception(f"Ошибка в handle_photo от {telegram_id}")
+        await message.answer("❗ Неизвестная ошибка.")
 
 
 @router.message(F.text == "📷 Загрузить фото")

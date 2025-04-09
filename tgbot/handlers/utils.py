@@ -42,11 +42,9 @@ async def get_shop_by_phone(phone_number: str):
     try:
         if not phone_number.startswith("+"):
             phone_number = f"+{phone_number}"
-        print(phone_number)
         telephone = await sync_to_async(
             lambda: Telephone.objects.select_related("shop").get(number=phone_number)
         )()
-        print(telephone)
         if telephone and hasattr(telephone, "shop"):
             shop = await sync_to_async(lambda: getattr(telephone, "shop", None))()
             return shop

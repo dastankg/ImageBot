@@ -1,6 +1,7 @@
 import asyncio
 import os
 import logging
+import time
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -18,9 +19,14 @@ from tgbot.handlers.user_handlers import router as user_router
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
+    handlers=[
+        logging.FileHandler("bot.log", encoding='utf-8'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
+logging.Formatter.converter = time.gmtime
 
 
 async def main():
