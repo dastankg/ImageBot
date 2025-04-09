@@ -14,7 +14,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
     ws = wb.active
     ws.title = "Posts"
 
-    columns = ["ID", "Shop", "Image", "Address", "Created"]
+    columns = ["ID", "Shop", "Image", "Address", "ShopAddress", "Created"]
     ws.append(columns)
 
     for index, shop in enumerate(queryset):
@@ -27,6 +27,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     shop.shop_name,
                     f"http://139.59.2.151:8000/media/{post.image}",
                     post.address,
+                    shop.address,
                     post.created.strftime("%Y-%m-%d %H:%M:%S"),
                 ]
             )
