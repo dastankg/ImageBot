@@ -4,7 +4,7 @@ import uuid
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import ContentType, KeyboardButton, Message, ReplyKeyboardMarkup
+from aiogram.types import ContentType, Message
 
 from tgbot.handlers.utils import (
     download_photo,
@@ -13,26 +13,17 @@ from tgbot.handlers.utils import (
     save_photo_to_post,
     save_user_profile,
 )
+from tgbot.keyboard.keyboards import (
+    get_contact_keyboard,
+    get_location_keyboard,
+    get_main_keyboard,
+    get_photo_keyboard,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
 
-def get_contact_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Поделиться контактом", request_contact=True)]],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-
-
-def get_main_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Загрузить фото")],
-            [KeyboardButton(text="Мой профиль"), KeyboardButton(text="Помощь")],
-        ],
-        resize_keyboard=True,
-    )
+user_states = {}
 
 
 @router.message(CommandStart())
@@ -50,8 +41,9 @@ async def cmd_help(message: Message):
     await message.answer(
         "📋 <b>Инструкция по использованию бота:</b>\n\n"
         "1. Отправьте свой контакт для авторизации\n"
-        "2. После успешной авторизации вы можете отправлять фотографии\n"
-        "3. Фотографии будут привязаны к вашему магазину\n\n"
+        "2. После успешной авторизации нажмите на кнопку «Загрузить фото»\n"
+        "3. Отправьте геолокацию для привязки к фотографии\n"
+        "4. Загрузите фотографию магазина\n\n"
         "Если у вас возникли проблемы, обратитесь к администратору."
     )
 
@@ -66,14 +58,15 @@ async def cmd_profile(message: Message):
         )
         return
 
-    shop = await get_shop_by_phone(user.phone_number)
+    shop = await get_shop_by_phone(user["phone_number"])
     if shop:
         await message.answer(
             f"📊 <b>Ваш профиль:</b>\n\n"
             f"🏪 Магазин: {shop.shop_name}\n"
             f"👤 Владелец: {shop.owner_name}\n"
             f"📍 Адрес: {shop.address}\n"
-            f"📱 Телефон: {user.phone_number}"
+            f"📱 Телефон: {user.phone_number}",
+            reply_markup=get_main_keyboard(),
         )
     else:
         await message.answer(
@@ -95,13 +88,15 @@ async def handle_contact(message: Message):
     try:
         await save_user_profile(telegram_id, phone_number)
 
+        user_states[telegram_id] = {"phone": phone_number}
+
         shop = await get_shop_by_phone(phone_number)
 
         if shop:
             await message.answer(
                 f"✅ Успешная авторизация!\n\n"
                 f"Вы зарегистрированы как магазин '{shop.shop_name}'.\n"
-                f"Теперь вы можете отправлять фотографии для сохранения.",
+                f"Теперь вы можете загружать фотографии с геолокацией.",
                 reply_markup=get_main_keyboard(),
             )
         else:
@@ -115,6 +110,28 @@ async def handle_contact(message: Message):
             "Произошла ошибка при проверке вашего номера. Пожалуйста, попробуйте позже."
         )
 
+
+@router.message(F.content_type == ContentType.LOCATION)
+async def handle_location(message: Message):
+    telegram_id = message.from_user.id
+
+    if telegram_id not in user_states:
+        await message.answer(
+            "Для начала работы необходимо авторизоваться. "
+            "Пожалуйста, поделитесь своим контактом.",
+            reply_markup=get_contact_keyboard(),
+        )
+        return
+
+    user_states[telegram_id]["location"] = {
+        "latitude": message.location.latitude,
+        "longitude": message.location.longitude,
+    }
+
+    await message.answer(
+        "📍 Геолокация получена!\n\nТеперь отправьте фотографию магазина.",
+        reply_markup=get_photo_keyboard(),
+    )
 
 
 @router.message(F.content_type == ContentType.PHOTO)
@@ -131,7 +148,17 @@ async def handle_photo(message: Message, bot: Bot):
             )
             return
 
-        shop = await get_shop_by_phone(user_profile.phone_number)
+        user_state = user_states.get(telegram_id, {})
+        location = user_state.get("location")
+
+        if not location:
+            await message.answer(
+                "Сначала необходимо отправить геолокацию.",
+                reply_markup=get_location_keyboard(),
+            )
+            return
+
+        shop = await get_shop_by_phone(user_profile["phone_number"])
         if not shop:
             await message.answer(
                 "К сожалению, ваш номер телефона не найден в системе магазинов. "
@@ -159,13 +186,26 @@ async def handle_photo(message: Message, bot: Bot):
 
         try:
             relative_path = await download_photo(file_url, filename)
-            await save_photo_to_post(shop.id, relative_path)
+            await save_photo_to_post(
+                shop.id,
+                relative_path,
+                latitude=location["latitude"],
+                longitude=location["longitude"],
+            )
+
+            if "location" in user_states[telegram_id]:
+                del user_states[telegram_id]["location"]
 
             await bot.edit_message_text(
                 f"✅ Фото успешно сохранено и связано с магазином '{shop.shop_name}'.",
                 chat_id=status_message.chat.id,
                 message_id=status_message.message_id,
             )
+
+            await message.answer(
+                "Что бы вы хотели сделать дальше?", reply_markup=get_main_keyboard()
+            )
+
         except Exception as e:
             logger.error(f"Error saving photo: {e}")
             await bot.edit_message_text(
@@ -181,22 +221,43 @@ async def handle_photo(message: Message, bot: Bot):
         )
 
 
-@router.message(F.text == "Загрузить фото")
+@router.message(F.text == "📷 Загрузить фото")
 async def upload_photo_command(message: Message):
-    await message.answer("Пожалуйста, отправьте фотографию, которую хотите сохранить.")
+    telegram_id = message.from_user.id
+
+    user_profile = await get_user_profile(telegram_id)
+    if not user_profile:
+        await message.answer(
+            "Для загрузки фотографий необходимо авторизоваться. "
+            "Пожалуйста, поделитесь своим контактом.",
+            reply_markup=get_contact_keyboard(),
+        )
+        return
+
+    await message.answer(
+        "Сначала отправьте геолокацию магазина.",
+        reply_markup=get_location_keyboard(),
+    )
 
 
-@router.message(F.text == "Мой профиль")
+@router.message(F.text == "👤 Мой профиль")
 async def profile_command(message: Message):
     await cmd_profile(message)
 
 
-@router.message(F.text == "Помощь")
+@router.message(F.text == "❓ Помощь")
 async def help_command(message: Message):
     await cmd_help(message)
 
 
-# Обработчик неизвестных сообщений
+@router.message(F.text == "🔙 Назад")
+async def back_command(message: Message):
+    await message.answer(
+        "Возвращаемся в главное меню.",
+        reply_markup=get_main_keyboard(),
+    )
+
+
 @router.message()
 async def unknown_message(message: Message):
     user = await get_user_profile(message.from_user.id)

@@ -1,7 +1,9 @@
 from django.contrib import admin
+
 from post.models import Post
 from shop.models import Shop, Telephone
 from shop.utils import export_posts_to_excel
+
 
 class TelephoneInline(admin.TabularInline):
     model = Telephone
@@ -11,7 +13,7 @@ class TelephoneInline(admin.TabularInline):
 class PostInline(admin.TabularInline):
     model = Post
     extra = 1
-    fields = ("image", "created")
+    fields = ("image", "created", "address")
     readonly_fields = ("created",)
     ordering = ("-created",)
 
@@ -26,4 +28,5 @@ class ShopAdmin(admin.ModelAdmin):
 
     def get_telephones(self, obj):
         return ", ".join(t.number for t in obj.telephones.all())
+
     get_telephones.short_description = "Telephones"

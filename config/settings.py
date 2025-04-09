@@ -10,7 +10,7 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 
 DEBUG = os.getenv("DEBUG")
 
-ALLOWED_HOSTS = ['139.59.2.151', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ["139.59.2.151", "127.0.0.1", "localhost"]
 
 
 # Application definition
@@ -24,7 +24,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "shop.apps.ShopConfig",
     "post.apps.PostConfig",
-    "tguser.apps.TguserConfig",
 ]
 
 MIDDLEWARE = [

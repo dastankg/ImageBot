@@ -1,88 +1,85 @@
 import logging
 import os
-from typing import Optional
 
-import aiofiles
 import aiohttp
 from asgiref.sync import sync_to_async
-from django.conf import settings
+from django.core.files.base import ContentFile
 
 from post.models import Post
-from shop.models import Shop
-from tguser.models import TgUser
-from shop.models import Telephone
+from shop.models import Shop, Telephone
+
 logger = logging.getLogger(__name__)
 
+_user_profiles = {}
 
-@sync_to_async
-def get_shop_by_phone(phone_number: str) -> Optional[Shop]:
+
+async def get_user_profile(telegram_id: int):
+    return _user_profiles.get(telegram_id)
+
+
+async def save_user_profile(telegram_id: int, phone_number: str):
+    _user_profiles[telegram_id] = {"phone_number": phone_number}
+    return True
+
+
+async def get_shop_by_phone(phone_number: str):
     try:
-        phone_number = str(phone_number).replace("+", "").strip()
-        telephone = Telephone.objects.select_related('shop').get(number=phone_number)
-        return telephone.shop
-    except Telephone.DoesNotExist:
-        logger.warning(f"Shop not found for phone: {phone_number}")
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+        print(phone_number)
+        telephone = await sync_to_async(
+            lambda: Telephone.objects.select_related("shop").get(number=phone_number)
+        )()
+        print(telephone)
+        if telephone and hasattr(telephone, "shop"):
+            shop = await sync_to_async(lambda: getattr(telephone, "shop", None))()
+            return shop
         return None
     except Exception as e:
-        logger.error(f"Error getting shop by phone: {e}")
-        return None
-
-
-
-@sync_to_async
-def save_user_profile(telegram_id: int, phone_number: str) -> TgUser:
-    try:
-        phone_number = str(phone_number).replace("+", "").strip()
-
-        user_profile, created = TgUser.objects.get_or_create(
-            telegram_id=telegram_id, defaults={"phone_number": phone_number}
-        )
-        if not created and user_profile.phone_number != phone_number:
-            user_profile.phone_number = phone_number
-            user_profile.save(update_fields=["phone_number"])
-
-        return user_profile
-    except Exception as e:
-        logger.error(f"Error saving user profile: {e}")
-        raise
-
-
-@sync_to_async
-def get_user_profile(telegram_id: int) -> Optional[TgUser]:
-    try:
-        return TgUser.objects.get(telegram_id=telegram_id)
-    except TgUser.DoesNotExist:
-        return None
-    except Exception as e:
-        logger.error(f"Error getting user profile: {e}")
+        logger.error(f"Error in get_shop_by_phone: {e}")
         return None
 
 
-@sync_to_async
-def save_photo_to_post(shop_id: int, relative_path: str) -> Post:
+async def download_photo(file_url: str, filename: str):
     try:
-        return Post.objects.create(shop_id=shop_id, image=relative_path)
-    except Exception as e:
-        logger.error(f"Error saving photo to post: {e}")
-        raise
+        os.makedirs("media/posts", exist_ok=True)
 
+        save_path = f"media/posts/{filename}"
+        relative_path = f"posts/{filename}"
 
-async def download_photo(file_url: str, filename: str) -> str:
-    save_path = os.path.join(settings.MEDIA_ROOT, "photos")
-    os.makedirs(save_path, exist_ok=True)
-    file_path = os.path.join(save_path, filename)
-
-    try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(file_url) as resp:
-                if resp.status != 200:
-                    raise ValueError(f"Failed to download file: HTTP {resp.status}")
+            async with session.get(file_url) as response:
+                if response.status != 200:
+                    raise Exception(f"Failed to download file: {response.status}")
 
-                async with aiofiles.open(file_path, "wb") as f:
-                    await f.write(await resp.read())
+                # Save the file
+                with open(save_path, "wb") as f:
+                    f.write(await response.read())
 
-        logger.info(f"Photo saved: {file_path}")
-        return f"photos/{filename}"
+        return relative_path
     except Exception as e:
-        logger.error(f"Error downloading photo: {e}")
+        logger.error(f"Error in download_photo: {e}")
+        raise
+
+
+async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=None):
+    try:
+        shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
+
+        post = Post(shop=shop, latitude=latitude, longitude=longitude)
+        await sync_to_async(post.save)()
+
+        with open(f"media/{relative_path}", "rb") as f:
+            image_content = f.read()
+            await sync_to_async(
+                lambda: post.image.save(
+                    os.path.basename(relative_path), ContentFile(image_content)
+                )
+            )()
+
+        await sync_to_async(post.save)()
+
+        return post.id
+    except Exception as e:
+        logger.error(f"Error in save_photo_to_post: {e}")
         raise
