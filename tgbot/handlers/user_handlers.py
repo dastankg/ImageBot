@@ -5,6 +5,8 @@ import uuid
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import ContentType, Message
+from aiogram.fsm.context import FSMContext
+from tgbot.FSM.fsm import UserState
 
 from tgbot.handlers.utils import (
     download_photo,
@@ -23,17 +25,18 @@ from tgbot.keyboard.keyboards import (
 router = Router()
 logger = logging.getLogger(__name__)
 
-user_states = {}
+
 
 
 @router.message(CommandStart())
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, state: FSMContext):
     await message.answer(
         "👋 Привет! Я бот для загрузки фотографий магазинов.\n\n"
         "Для начала работы, пожалуйста, поделитесь своим контактом, "
         "чтобы я мог проверить ваш номер телефона в системе.",
         reply_markup=get_contact_keyboard(),
     )
+    await state.set_state(UserState.unauthorized)
 
 
 @router.message(Command("help"))
@@ -49,13 +52,14 @@ async def cmd_help(message: Message):
 
 
 @router.message(Command("profile"))
-async def cmd_profile(message: Message):
+async def cmd_profile(message: Message, state: FSMContext):
     user = await get_user_profile(message.from_user.id)
     if not user:
         await message.answer(
             "Вы еще не авторизованы. Пожалуйста, поделитесь своим контактом для авторизации.",
             reply_markup=get_contact_keyboard(),
         )
+        await state.set_state(UserState.unauthorized)
         return
 
     shop = await get_shop_by_phone(user["phone_number"])
@@ -65,18 +69,18 @@ async def cmd_profile(message: Message):
             f"🏪 Магазин: {shop.shop_name}\n"
             f"👤 Владелец: {shop.owner_name}\n"
             f"📍 Адрес: {shop.address}\n"
-            f"📱 Телефон: {user.phone_number}",
+            f"📱 Телефон: {user['phone_number']}",
             reply_markup=get_main_keyboard(),
         )
     else:
         await message.answer(
-            f"📱 Телефон: {user.phone_number}\n\n"
+            f"📱 Телефон: {user['phone_number']}\n\n"
             f"❗ Этот номер не найден в системе магазинов."
         )
 
 
 @router.message(F.content_type == ContentType.CONTACT)
-async def handle_contact(message: Message):
+async def handle_contact(message: Message, state: FSMContext):
     contact = message.contact
     phone_number = contact.phone_number
     telegram_id = message.from_user.id
@@ -88,7 +92,9 @@ async def handle_contact(message: Message):
     try:
         await save_user_profile(telegram_id, phone_number)
 
-        user_states[telegram_id] = {"phone": phone_number}
+        # Set phone number in FSM state data
+        await state.update_data(phone=phone_number)
+        await state.set_state(UserState.authorized)
 
         shop = await get_shop_by_phone(phone_number)
 
@@ -112,21 +118,27 @@ async def handle_contact(message: Message):
 
 
 @router.message(F.content_type == ContentType.LOCATION)
-async def handle_location(message: Message):
+async def handle_location(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
+    user = await get_user_profile(telegram_id)
 
-    if telegram_id not in user_states:
+    if not user:
         await message.answer(
             "Для начала работы необходимо авторизоваться. "
             "Пожалуйста, поделитесь своим контактом.",
             reply_markup=get_contact_keyboard(),
         )
+        await state.set_state(UserState.unauthorized)
         return
 
-    user_states[telegram_id]["location"] = {
-        "latitude": message.location.latitude,
-        "longitude": message.location.longitude,
-    }
+    # Save location to state
+    await state.update_data(
+        location={
+            "latitude": message.location.latitude,
+            "longitude": message.location.longitude,
+        }
+    )
+    await state.set_state(UserState.waiting_for_photo)
 
     await message.answer(
         "📍 Геолокация получена!\n\nТеперь отправьте фотографию магазина.",
@@ -135,7 +147,7 @@ async def handle_location(message: Message):
 
 
 @router.message(F.content_type == ContentType.PHOTO)
-async def handle_photo(message: Message, bot: Bot):
+async def handle_photo(message: Message, bot: Bot, state: FSMContext):
     telegram_id = message.from_user.id
 
     try:
@@ -146,16 +158,18 @@ async def handle_photo(message: Message, bot: Bot):
                 "Пожалуйста, поделитесь своим контактом.",
                 reply_markup=get_contact_keyboard(),
             )
+            await state.set_state(UserState.unauthorized)
             return
 
-        user_state = user_states.get(telegram_id, {})
-        location = user_state.get("location")
+        state_data = await state.get_data()
+        location = state_data.get("location")
 
         if not location:
             await message.answer(
                 "Сначала необходимо отправить геолокацию.",
                 reply_markup=get_location_keyboard(),
             )
+            await state.set_state(UserState.waiting_for_location)
             return
 
         shop = await get_shop_by_phone(user_profile["phone_number"])
@@ -171,7 +185,7 @@ async def handle_photo(message: Message, bot: Bot):
         file = await bot.get_file(file_id)
         file_path = file.file_path
 
-        bot_token = os.getenv("TG_TOKEN")
+        bot_token = os.getenv("BOT_TOKEN")
         if not bot_token:
             await message.answer(
                 "Ошибка конфигурации сервера. Обратитесь к администратору."
@@ -193,8 +207,8 @@ async def handle_photo(message: Message, bot: Bot):
                 longitude=location["longitude"],
             )
 
-            if "location" in user_states[telegram_id]:
-                del user_states[telegram_id]["location"]
+            await state.update_data(location=None)
+            await state.set_state(UserState.authorized)
 
             await bot.edit_message_text(
                 f"✅ Фото успешно сохранено и связано с магазином '{shop.shop_name}'.",
@@ -222,7 +236,7 @@ async def handle_photo(message: Message, bot: Bot):
 
 
 @router.message(F.text == "📷 Загрузить фото")
-async def upload_photo_command(message: Message):
+async def upload_photo_command(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
 
     user_profile = await get_user_profile(telegram_id)
@@ -232,8 +246,10 @@ async def upload_photo_command(message: Message):
             "Пожалуйста, поделитесь своим контактом.",
             reply_markup=get_contact_keyboard(),
         )
+        await state.set_state(UserState.unauthorized)
         return
 
+    await state.set_state(UserState.waiting_for_location)
     await message.answer(
         "Сначала отправьте геолокацию магазина.",
         reply_markup=get_location_keyboard(),
@@ -241,8 +257,8 @@ async def upload_photo_command(message: Message):
 
 
 @router.message(F.text == "👤 Мой профиль")
-async def profile_command(message: Message):
-    await cmd_profile(message)
+async def profile_command(message: Message, state: FSMContext):
+    await cmd_profile(message, state)
 
 
 @router.message(F.text == "❓ Помощь")
@@ -251,7 +267,12 @@ async def help_command(message: Message):
 
 
 @router.message(F.text == "🔙 Назад")
-async def back_command(message: Message):
+async def back_command(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+
+    if current_state in [UserState.waiting_for_location, UserState.waiting_for_photo]:
+        await state.set_state(UserState.authorized)
+
     await message.answer(
         "Возвращаемся в главное меню.",
         reply_markup=get_main_keyboard(),
@@ -259,13 +280,14 @@ async def back_command(message: Message):
 
 
 @router.message()
-async def unknown_message(message: Message):
+async def unknown_message(message: Message, state: FSMContext):
     user = await get_user_profile(message.from_user.id)
     if not user:
         await message.answer(
             "Для начала работы, пожалуйста, поделитесь своим контактом.",
             reply_markup=get_contact_keyboard(),
         )
+        await state.set_state(UserState.unauthorized)
     else:
         await message.answer(
             "Я понимаю только фотографии и специальные команды. "

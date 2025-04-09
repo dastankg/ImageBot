@@ -1,26 +1,42 @@
 import logging
 import os
+import json
+from typing import Optional, Dict, Any
 
 import aiohttp
+import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
-
 from post.models import Post
 from shop.models import Shop, Telephone
+from tgbot.tgConfig.tgConfig import load_config
 
 logger = logging.getLogger(__name__)
 
-_user_profiles = {}
+config = load_config()
+
+redis_client = redis_async.Redis(
+    host=config.redis.redis_host,
+    port=config.redis.redis_port,
+    db=config.redis.redis_db
+)
 
 
-async def get_user_profile(telegram_id: int):
-    return _user_profiles.get(telegram_id)
+async def get_user_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
+    key = f"user:{telegram_id}"
+    data = await redis_client.get(key)
+    return json.loads(data) if data else None
 
 
-async def save_user_profile(telegram_id: int, phone_number: str):
-    _user_profiles[telegram_id] = {"phone_number": phone_number}
-    return True
-
+async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
+    try:
+        key = f"user:{telegram_id}"
+        user_data = {"phone_number": phone_number}
+        await redis_client.set(key, json.dumps(user_data))
+        return True
+    except Exception as e:
+        logger.error(f"Error saving user profile to Redis: {e}")
+        return False
 
 async def get_shop_by_phone(phone_number: str):
     try:
@@ -52,7 +68,6 @@ async def download_photo(file_url: str, filename: str):
                 if response.status != 200:
                     raise Exception(f"Failed to download file: {response.status}")
 
-                # Save the file
                 with open(save_path, "wb") as f:
                     f.write(await response.read())
 

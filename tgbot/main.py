@@ -1,19 +1,20 @@
 import asyncio
-import logging
 import os
+import logging
+
+from dotenv import load_dotenv
+load_dotenv()
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
+django.setup()
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from dotenv import load_dotenv
-
-load_dotenv()
-
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
-django.setup()
-
+from tgbot.handlers.utils import config
 from tgbot.handlers.user_handlers import router as user_router
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -25,13 +26,8 @@ logger = logging.getLogger(__name__)
 async def main():
     logger.info("Starting bot")
 
-    token = os.getenv("TG_TOKEN")
-    if not token:
-        logger.error("TG_TOKEN not found in environment variables!")
-        return
-
     bot = Bot(
-        token=token,
+        token=config.tg_bot.token,  # ✅ Лучше использовать из config
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 

@@ -12,6 +12,11 @@ services:
       - postgres_data:/var/lib/postgresql/data
     env_file:
       - .env
+  redis:
+    image: redis:alpine
+    container_name: imageBor-redis
+    ports:
+      - "6379:6379"
 
   web:
     build: .
@@ -20,6 +25,7 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - redis
     volumes:
       - ./media:/app/media
     environment:
@@ -31,6 +37,9 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: ${DB_HOST}
       DB_PORT: ${DB_PORT}
+      REDIS_URL: ${REDIS_URL}
+      REDIS_PORT: ${REDIS_PORT}
+
     env_file:
       - .env
 
