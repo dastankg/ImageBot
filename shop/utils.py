@@ -17,23 +17,21 @@ def export_posts_to_excel(modeladmin, request, queryset):
     columns = ["ID", "Shop", "Image", "Address", "Created"]
     ws.append(columns)
 
-    # Write data
-    for shop in queryset:
+    for index, shop in enumerate(queryset):
         posts = Post.objects.filter(shop=shop)
-        flag = False
+
         for post in posts:
-            flag = True
             ws.append(
                 [
                     post.id,
                     shop.shop_name,
-                    "http://139.59.2.151:8000/media/" + str(post.image),
+                    f"http://139.59.2.151:8000/media/{post.image}",
                     post.address,
                     post.created.strftime("%Y-%m-%d %H:%M:%S"),
                 ]
             )
-        if flag:
-            ws.append([])
+
+        if index < len(queryset) - 1:
             ws.append([])
 
     wb.save(response)
