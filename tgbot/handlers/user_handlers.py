@@ -4,10 +4,10 @@ import uuid
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
-from tgbot.FSM.fsm import UserState
+from aiogram.types import ContentType, Message
 
+from tgbot.FSM.fsm import UserState
 from tgbot.handlers.utils import (
     download_photo,
     get_shop_by_phone,
@@ -177,9 +177,13 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         file = await bot.get_file(file_id)
         file_path = file.file_path
 
-        logger.info(f"Загрузка фото от {telegram_id}: file_id={file_id}, path={file_path}")
+        logger.info(
+            f"Загрузка фото от {telegram_id}: file_id={file_id}, path={file_path}"
+        )
 
-        file_url = f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
+        file_url = (
+            f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
+        )
         filename = f"{uuid.uuid4().hex}.jpg"
 
         status_message = await message.answer("⏳ Загрузка фотографии...")

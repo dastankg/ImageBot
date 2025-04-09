@@ -1,12 +1,13 @@
+import json
 import logging
 import os
-import json
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import aiohttp
 import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
+
 from post.models import Post
 from shop.models import Shop, Telephone
 from tgbot.tgConfig.tgConfig import load_config
@@ -16,9 +17,7 @@ logger = logging.getLogger(__name__)
 config = load_config()
 
 redis_client = redis_async.Redis(
-    host=config.redis.redis_host,
-    port=config.redis.redis_port,
-    db=config.redis.redis_db
+    host=config.redis.redis_host, port=config.redis.redis_port, db=config.redis.redis_db
 )
 
 
@@ -37,6 +36,7 @@ async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
     except Exception as e:
         logger.error(f"Error saving user profile to Redis: {e}")
         return False
+
 
 async def get_shop_by_phone(phone_number: str):
     try:

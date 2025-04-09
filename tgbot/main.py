@@ -1,29 +1,31 @@
 import asyncio
-import os
 import logging
+import os
 import time
 
 from dotenv import load_dotenv
+
 load_dotenv()
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
+
 django.setup()
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from tgbot.handlers.utils import config
-from tgbot.handlers.user_handlers import router as user_router
 
+from tgbot.handlers.user_handlers import router as user_router
+from tgbot.handlers.utils import config
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(funcName)s - %(message)s",
     handlers=[
-        logging.FileHandler("bot.log", encoding='utf-8'),
-        logging.StreamHandler()
-    ]
+        logging.FileHandler("bot.log", encoding="utf-8"),
+        logging.StreamHandler(),
+    ],
 )
 logger = logging.getLogger(__name__)
 logging.Formatter.converter = time.gmtime
