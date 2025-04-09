@@ -20,7 +20,9 @@ def export_posts_to_excel(modeladmin, request, queryset):
     # Write data
     for shop in queryset:
         posts = Post.objects.filter(shop=shop)
+        flag = False
         for post in posts:
+            flag = True
             ws.append(
                 [
                     post.id,
@@ -30,8 +32,9 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     post.created.strftime("%Y-%m-%d %H:%M:%S"),
                 ]
             )
-        ws.append([])
-        ws.append([])
+        if flag:
+            ws.append([])
+            ws.append([])
 
     wb.save(response)
     return response
