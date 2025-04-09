@@ -31,7 +31,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
                 ]
             )
 
-        if index < len(queryset) - 1:
+        if len(posts) != 0:
             ws.append([])
 
     wb.save(response)
