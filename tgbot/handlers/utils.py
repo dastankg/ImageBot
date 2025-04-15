@@ -2,12 +2,15 @@ import json
 import logging
 import os
 from typing import Any, Dict, Optional
-
+from datetime import datetime
+from PIL import Image
+from PIL.ExifTags import TAGS
 import aiohttp
 import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
 from django.core.files.base import ContentFile
 
+from config import settings
 from post.models import Post
 from shop.models import Shop, Telephone
 from tgbot.tgConfig.tgConfig import load_config
@@ -54,11 +57,12 @@ async def get_shop_by_phone(phone_number: str):
         return None
 
 
-async def download_photo(file_url: str, filename: str):
+async def download_file(file_url: str, filename: str):
     try:
-        os.makedirs("media/posts", exist_ok=True)
+        posts_dir = os.path.join(settings.MEDIA_ROOT, "posts")
+        os.makedirs(posts_dir, exist_ok=True)
 
-        save_path = f"media/posts/{filename}"
+        save_path = os.path.join(posts_dir, filename)
         relative_path = f"posts/{filename}"
 
         async with aiohttp.ClientSession() as session:
@@ -69,28 +73,57 @@ async def download_photo(file_url: str, filename: str):
                 with open(save_path, "wb") as f:
                     f.write(await response.read())
 
-        return relative_path
+        return save_path, relative_path
     except Exception as e:
-        logger.error(f"Error in download_photo: {e}")
+        logger.error(f"Error in download_file: {e}")
         raise
 
 
-async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=None):
+def extract_creation_time(file_path):
     try:
+        with Image.open(file_path) as img:
+            exif_data = img._getexif()
+            if not exif_data:
+                logger.warning(f"No EXIF data found in the image: {file_path}")
+                return None
+
+            for tag_id, value in exif_data.items():
+                tag = TAGS.get(tag_id, tag_id)
+                if tag == "DateTimeOriginal":
+                    try:
+                        return datetime.strptime(value, "%Y:%m:%d %H:%M:%S")
+                    except ValueError:
+                        logger.warning(f"Invalid date format in EXIF: {value}")
+                        return None
+
+            for tag_id, value in exif_data.items():
+                tag = TAGS.get(tag_id, tag_id)
+                if tag == "DateTime":
+                    try:
+                        return datetime.strptime(value, "%Y:%m:%d %H:%M:%S")
+                    except ValueError:
+                        logger.warning(f"Invalid date format in EXIF: {value}")
+                        return None
+
+            logger.warning(f"No creation time found in EXIF data: {file_path}")
+            return None
+    except Exception as e:
+        logger.error(f"Error extracting creation time from image: {e}")
+        return None
+
+
+async def save_photo_to_post(shop_id, relative_path, full_path, latitude=None, longitude=None):
+    try:
+        creation_time = extract_creation_time(full_path)
+
         shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
 
-        post = Post(shop=shop, latitude=latitude, longitude=longitude)
-        await sync_to_async(post.save)()
-
-        with open(f"media/{relative_path}", "rb") as f:
-            image_content = f.read()
-            await sync_to_async(
-                lambda: post.image.save(
-                    os.path.basename(relative_path), ContentFile(image_content)
-                )
-            )()
-
-        await sync_to_async(post.save)()
+        post = Post(
+            shop=shop,
+            latitude=latitude,
+            longitude=longitude,
+            creation_time=creation_time
+        )
 
         return post.id
     except Exception as e:

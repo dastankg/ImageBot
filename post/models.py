@@ -12,6 +12,8 @@ class Post(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
+    creation_time = models.DateTimeField(null=True, blank=True,
+                                         help_text="Original creation time extracted from image metadata")
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
