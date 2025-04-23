@@ -26,7 +26,7 @@ def load_config(path: str | None = None) -> Config:
     env.read_env(path)
     return Config(
         tg_bot=TgBot(
-            token=env("BOT_TOKEN"),
+            token=env("BOT_TOKEN2"),
         ),
         redis=RedisConfig(
             redis_host=env("REDIS_HOST", "redis"),

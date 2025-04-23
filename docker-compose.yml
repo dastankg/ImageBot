@@ -57,6 +57,20 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
     env_file:
       - .env
+  tgbot2:
+    build: .
+    working_dir: /app
+    command: python tgbotAgent/main.py
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+      - db
+    environment:
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+    env_file:
+      - .env
 
 
 volumes:
