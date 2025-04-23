@@ -10,6 +10,14 @@ class Shop(models.Model):
         return self.shop_name
 
 
+class Agent(models.Model):
+    agent_name = models.CharField(max_length=255)
+    agent_number = models.CharField(max_length=21)
+
+    def __str__(self):
+        return self.agent_name
+
+
 class Telephone(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="telephones")
     number = models.CharField(max_length=20)

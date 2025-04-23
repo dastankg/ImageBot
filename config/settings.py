@@ -13,7 +13,6 @@ DEBUG = os.getenv("DEBUG")
 ALLOWED_HOSTS = ["139.59.2.151", "127.0.0.1", "localhost"]
 
 
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -56,7 +55,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 
-
 DATABASES = {
     "default": {
         "ENGINE": os.getenv("DB_ENGINE"),
@@ -85,7 +83,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-
 LANGUAGE_CODE = "ru-RU"
 
 TIME_ZONE = "Asia/Bishkek"
@@ -94,7 +91,6 @@ TIME_ZONE = "Asia/Bishkek"
 USE_I18N = True
 
 USE_TZ = True
-
 
 
 STATIC_URL = "/static/"

@@ -14,7 +14,8 @@ def get_contact_keyboard() -> ReplyKeyboardMarkup:
 def get_location_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]
+            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)],
+            [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True,
         one_time_keyboard=True,
@@ -32,6 +33,15 @@ def get_main_keyboard() -> ReplyKeyboardMarkup:
 
 
 def get_photo_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="🔙 Назад")],
+        ],
+        resize_keyboard=True,
+    )
+
+
+def get_back_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
             [KeyboardButton(text="🔙 Назад")],

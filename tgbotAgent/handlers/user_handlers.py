@@ -6,16 +6,17 @@ from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
-from tgbot.FSM.fsm import UserState
+from tgbotAgent.FSM.fsm import UserState
 
-from tgbot.handlers.utils import (
+from tgbotAgent.handlers.utils import (
     download_photo,
-    get_shop_by_phone,
+    get_agent_by_phone,
     get_user_profile,
     save_photo_to_post,
     save_user_profile,
 )
-from tgbot.keyboard.keyboards import (
+from tgbotAgent.keyboard.keyboards import (
+    get_back_keyboard,  # New keyboard
     get_contact_keyboard,
     get_location_keyboard,
     get_main_keyboard,
@@ -44,8 +45,9 @@ async def cmd_help(message: Message):
         "📋 <b>Инструкция по использованию бота:</b>\n\n"
         "1. Отправьте свой контакт для авторизации\n"
         "2. После успешной авторизации нажмите на кнопку «Загрузить фото»\n"
-        "3. Отправьте геолокацию для привязки к фотографии\n"
-        "4. Загрузите фотографию магазина\n\n"
+        "3. Введите название магазина для фотографии\n"
+        "4. Отправьте геолокацию для привязки к фотографии\n"
+        "5. Загрузите фотографию магазина\n\n"
         "Если у вас возникли проблемы, обратитесь к администратору."
     )
 
@@ -61,20 +63,18 @@ async def cmd_profile(message: Message, state: FSMContext):
         await state.set_state(UserState.unauthorized)
         return
 
-    shop = await get_shop_by_phone(user["phone_number"])
-    if shop:
+    agent = await get_agent_by_phone(user["phone_number"])
+    if agent:
         await message.answer(
             f"📊 <b>Ваш профиль:</b>\n\n"
-            f"🏪 Магазин: {shop.shop_name}\n"
-            f"👤 Владелец: {shop.owner_name}\n"
-            f"📍 Адрес: {shop.address}\n"
-            f"📱 Телефон: {user['phone_number']}",
+            f"👤 Агент: {agent.agent_name}\n"
+            f"📱 Телефон: {agent.agent_number}",
             reply_markup=get_main_keyboard(),
         )
     else:
         await message.answer(
             f"📱 Телефон: {user['phone_number']}\n\n"
-            f"❗ Этот номер не найден в системе магазинов."
+            f"❗ Этот номер не найден в системе агентов."
         )
 
 
@@ -94,25 +94,55 @@ async def handle_contact(message: Message, state: FSMContext):
         await state.update_data(phone=phone_number)
         await state.set_state(UserState.authorized)
 
-        shop = await get_shop_by_phone(phone_number)
+        agent = await get_agent_by_phone(phone_number)
 
-        if shop:
+        if agent:
             await message.answer(
                 f"✅ Успешная авторизация!\n\n"
-                f"Вы зарегистрированы как магазин '{shop.shop_name}'.\n"
-                f"Теперь вы можете загружать фотографии с геолокацией.",
+                f"Вы зарегистрированы как агент '{agent.agent_name}'.\n"
+                f"Теперь вы можете загружать фотографии магазинов с геолокацией.",
                 reply_markup=get_main_keyboard(),
             )
         else:
             await message.answer(
                 "❌ Ваш номер не найден в нашей системе.\n"
-                "Обратитесь к администратору для регистрации вашего магазина."
+                "Обратитесь к администратору для регистрации вас как агента."
             )
     except Exception as e:
         logger.error(f"Error in handle_contact: {e}")
         await message.answer(
             "Произошла ошибка при проверке вашего номера. Пожалуйста, попробуйте позже."
         )
+
+
+@router.message(UserState.waiting_for_shopName)
+async def handle_shop_name(message: Message, state: FSMContext):
+    if message.text == "🔙 Назад":
+        await state.set_state(UserState.authorized)
+        await message.answer(
+            "Возвращаемся в главное меню.",
+            reply_markup=get_main_keyboard(),
+        )
+        return
+
+    shop_name = message.text
+
+    if not shop_name or len(shop_name) > 100:
+        await message.answer(
+            "Название магазина должно быть не пустым и не более 100 символов.\n"
+            "Пожалуйста, введите корректное название:",
+            reply_markup=get_back_keyboard(),
+        )
+        return
+
+    await state.update_data(shop_name=shop_name)
+    await state.set_state(UserState.waiting_for_location)
+
+    await message.answer(
+        f"Название магазина '{shop_name}' сохранено.\n"
+        f"Теперь отправьте геолокацию магазина.",
+        reply_markup=get_location_keyboard(),
+    )
 
 
 @router.message(F.content_type == ContentType.LOCATION)
@@ -129,7 +159,17 @@ async def handle_location(message: Message, state: FSMContext):
         await state.set_state(UserState.unauthorized)
         return
 
-    # Save location to state
+    state_data = await state.get_data()
+    shop_name = state_data.get("shop_name")
+
+    if not shop_name:
+        await message.answer(
+            "Сначала введите название магазина.",
+            reply_markup=get_main_keyboard(),
+        )
+        await state.set_state(UserState.waiting_for_shopName)
+        return
+
     await state.update_data(
         location={
             "latitude": message.location.latitude,
@@ -139,7 +179,7 @@ async def handle_location(message: Message, state: FSMContext):
     await state.set_state(UserState.waiting_for_photo)
 
     await message.answer(
-        "📍 Геолокация получена!\n\nТеперь отправьте фотографию магазина.",
+        f"📍 Геолокация для магазина '{shop_name}' получена!\n\nТеперь отправьте фотографию магазина.",
         reply_markup=get_photo_keyboard(),
     )
 
@@ -159,6 +199,13 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
 
         state_data = await state.get_data()
         location = state_data.get("location")
+        shop_name = state_data.get("shop_name")
+
+        if not shop_name:
+            logger.info(f"Нет названия магазина для user_id={telegram_id}")
+            await message.answer("Сначала введите название магазина.")
+            await state.set_state(UserState.waiting_for_shopName)
+            return
 
         if not location:
             logger.info(f"Нет геолокации для user_id={telegram_id}")
@@ -166,10 +213,10 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
             await state.set_state(UserState.waiting_for_location)
             return
 
-        shop = await get_shop_by_phone(user_profile["phone_number"])
-        if not shop:
-            logger.warning(f"Магазин не найден: phone={user_profile['phone_number']}")
-            await message.answer("Ваш магазин не зарегистрирован.")
+        agent = await get_agent_by_phone(user_profile["phone_number"])
+        if not agent:
+            logger.warning(f"Агент не найден: phone={user_profile['phone_number']}")
+            await message.answer("Вы не зарегистрированы как агент.")
             return
 
         photo = message.photo[-1]
@@ -191,19 +238,20 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         try:
             relative_path = await download_photo(file_url, filename)
             await save_photo_to_post(
-                shop.id,
+                agent.id,
+                shop_name,
                 relative_path,
                 latitude=location["latitude"],
                 longitude=location["longitude"],
             )
 
-            logger.info(f"Фото сохранено: {filename} для магазина {shop.shop_name}")
+            logger.info(f"Фото сохранено: {filename} для магазина {shop_name}")
 
-            await state.update_data(location=None)
+            await state.update_data(location=None, shop_name=None)
             await state.set_state(UserState.authorized)
 
             await bot.edit_message_text(
-                f"✅ Фото успешно сохранено и связано с магазином '{shop.shop_name}'.",
+                f"✅ Фото успешно сохранено для магазина '{shop_name}'.",
                 chat_id=status_message.chat.id,
                 message_id=status_message.message_id,
             )
@@ -237,10 +285,10 @@ async def upload_photo_command(message: Message, state: FSMContext):
         await state.set_state(UserState.unauthorized)
         return
 
-    await state.set_state(UserState.waiting_for_location)
+    await state.set_state(UserState.waiting_for_shopName)
     await message.answer(
-        "Сначала отправьте геолокацию магазина.",
-        reply_markup=get_location_keyboard(),
+        "Введите название магазина для фотографии:",
+        reply_markup=get_back_keyboard(),
     )
 
 
@@ -258,8 +306,13 @@ async def help_command(message: Message):
 async def back_command(message: Message, state: FSMContext):
     current_state = await state.get_state()
 
-    if current_state in [UserState.waiting_for_location, UserState.waiting_for_photo]:
+    if current_state in [
+        UserState.waiting_for_location,
+        UserState.waiting_for_photo,
+        UserState.waiting_for_shopName,
+    ]:
         await state.set_state(UserState.authorized)
+        await state.update_data(location=None, shop_name=None)
 
     await message.answer(
         "Возвращаемся в главное меню.",
@@ -269,6 +322,12 @@ async def back_command(message: Message, state: FSMContext):
 
 @router.message()
 async def unknown_message(message: Message, state: FSMContext):
+    current_state = await state.get_state()
+
+    if current_state == UserState.waiting_for_shopName:
+        await handle_shop_name(message, state)
+        return
+
     user = await get_user_profile(message.from_user.id)
     if not user:
         await message.answer(
@@ -279,6 +338,6 @@ async def unknown_message(message: Message, state: FSMContext):
     else:
         await message.answer(
             "Я понимаю только фотографии и специальные команды. "
-            "Отправьте фото или воспользуйтесь кнопками меню.",
+            "Воспользуйтесь кнопками меню.",
             reply_markup=get_main_keyboard(),
         )

@@ -16,9 +16,7 @@ logger = logging.getLogger(__name__)
 config = load_config()
 
 redis_client = redis_async.Redis(
-    host=config.redis.redis_host,
-    port=config.redis.redis_port,
-    db=config.redis.redis_db
+    host=config.redis.redis_host, port=config.redis.redis_port, db=config.redis.redis_db
 )
 
 
@@ -37,6 +35,7 @@ async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
     except Exception as e:
         logger.error(f"Error saving user profile to Redis: {e}")
         return False
+
 
 async def get_shop_by_phone(phone_number: str):
     try:
@@ -80,17 +79,20 @@ async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=No
         shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
 
         post = Post(shop=shop, latitude=latitude, longitude=longitude)
-        await sync_to_async(post.save)()
 
         with open(f"media/{relative_path}", "rb") as f:
             image_content = f.read()
             await sync_to_async(
                 lambda: post.image.save(
-                    os.path.basename(relative_path), ContentFile(image_content)
+                    os.path.basename(relative_path),
+                    ContentFile(image_content),
+                    save=False,
                 )
             )()
 
         await sync_to_async(post.save)()
+
+        os.remove(f"media/{relative_path}")
 
         return post.id
     except Exception as e:

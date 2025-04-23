@@ -1,8 +1,8 @@
 from django.contrib import admin
 
 from post.models import Post
-from shop.models import Shop, Telephone
-from shop.utils import export_posts_to_excel
+from shop.models import Shop, Telephone, Agent
+from shop.utils import export_posts_to_excel, export_agent_posts_to_excel
 
 
 class TelephoneInline(admin.TabularInline):
@@ -30,3 +30,9 @@ class ShopAdmin(admin.ModelAdmin):
         return ", ".join(t.number for t in obj.telephones.all())
 
     get_telephones.short_description = "Telephones"
+
+
+@admin.register(Agent)
+class AgentAdmin(admin.ModelAdmin):
+    list_display = ["agent_name", "agent_number"]
+    actions = [export_agent_posts_to_excel]
