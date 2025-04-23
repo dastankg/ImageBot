@@ -8,7 +8,7 @@ from asgiref.sync import sync_to_async
 from django.core.files.base import File
 from post.models import PostAgent
 from shop.models import Agent
-from tgbot.tgConfig.tgConfig import load_config
+from tgbotAgent.tgConfig.tgConfig import load_config
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,6 @@ async def save_photo_to_post(
 
         file_path = f"media/{relative_path}"
         file_name = os.path.basename(file_path)
-
         with open(file_path, "rb") as f:
             await sync_to_async(
                 lambda: post.image.save(file_name, File(f), save=True)

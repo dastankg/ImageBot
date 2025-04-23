@@ -16,7 +16,7 @@ from tgbotAgent.handlers.utils import (
     save_user_profile,
 )
 from tgbotAgent.keyboard.keyboards import (
-    get_back_keyboard,  # New keyboard
+    get_back_keyboard,
     get_contact_keyboard,
     get_location_keyboard,
     get_main_keyboard,
@@ -229,7 +229,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         )
 
         file_url = (
-            f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
+            f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN2')}/{file_path}"
         )
         filename = f"{uuid.uuid4().hex}.jpg"
 

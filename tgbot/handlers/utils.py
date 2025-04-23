@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 import aiohttp
 import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
-from django.core.files.base import ContentFile
+from django.core.files.base import ContentFile, File
 from post.models import Post
 from shop.models import Shop, Telephone
 from tgbot.tgConfig.tgConfig import load_config
@@ -80,21 +80,47 @@ async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=No
 
         post = Post(shop=shop, latitude=latitude, longitude=longitude)
 
-        with open(f"media/{relative_path}", "rb") as f:
-            image_content = f.read()
-            await sync_to_async(
-                lambda: post.image.save(
-                    os.path.basename(relative_path),
-                    ContentFile(image_content),
-                    save=False,
-                )
-            )()
-
         await sync_to_async(post.save)()
 
-        os.remove(f"media/{relative_path}")
+        file_path = f"media/{relative_path}"
+        file_name = os.path.basename(file_path)
+
+        with open(file_path, "rb") as f:
+            await sync_to_async(
+                lambda: post.image.save(file_name, File(f), save=True)
+            )()
+        os.remove(file_path)
+
+        if latitude and longitude and not post.address:
+            try:
+                address = await get_address_from_coordinates(latitude, longitude)
+                if address:
+                    post.address = address
+                    await sync_to_async(post.save)()
+            except Exception as e:
+                logger.error(f"Error getting address from coordinates: {e}")
 
         return post.id
     except Exception as e:
         logger.error(f"Error in save_photo_to_post: {e}")
         raise
+
+async def get_address_from_coordinates(latitude, longitude):
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                "https://nominatim.openstreetmap.org/reverse",
+                params={
+                    "lat": latitude,
+                    "lon": longitude,
+                    "format": "json",
+                },
+                headers={"User-Agent": "DjangoApp"},
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("display_name")
+        return None
+    except Exception as e:
+        logger.error(f"Error in get_address_from_coordinates: {e}")
+        return None

@@ -6,16 +6,16 @@ from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
-from tgbot.FSM.fsm import UserState
+from tgbotAgent.FSM.fsm import UserState
 
-from tgbot.handlers.utils import (
+from tgbotAgent.handlers.utils import (
     download_photo,
     get_shop_by_phone,
     get_user_profile,
     save_photo_to_post,
     save_user_profile,
 )
-from tgbot.keyboard.keyboards import (
+from tgbotAgent.keyboard.keyboards import (
     get_contact_keyboard,
     get_location_keyboard,
     get_main_keyboard,
