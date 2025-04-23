@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any
 import aiohttp
 import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
-from django.core.files.base import ContentFile, File
+from django.core.files.base import File
 from post.models import Post
 from shop.models import Shop, Telephone
 from tgbot.tgConfig.tgConfig import load_config

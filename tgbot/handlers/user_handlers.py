@@ -8,14 +8,14 @@ from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
 from tgbotAgent.FSM.fsm import UserState
 
-from tgbotAgent.handlers.utils import (
+from tgbot.handlers.utils import (
     download_photo,
     get_shop_by_phone,
     get_user_profile,
     save_photo_to_post,
     save_user_profile,
 )
-from tgbotAgent.keyboard.keyboards import (
+from tgbot.keyboard.keyboards import (
     get_contact_keyboard,
     get_location_keyboard,
     get_main_keyboard,
