@@ -6,6 +6,8 @@ from openpyxl import Workbook
 from datetime import datetime
 from post.models import Post, PostAgent
 from django.contrib import admin
+from django.utils.timezone import localtime
+
 
 
 class DateRangeForm(forms.Form):
@@ -82,6 +84,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
             posts = posts.filter(created__lte=end_date)
 
         for post in posts:
+            local_created = localtime(post.created)
             ws.append(
                 [
                     post.id,
@@ -89,8 +92,8 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     f"http://139.59.2.151:8000/media/{post.image}",
                     post.address,
                     shop.address,
-                    post.created.strftime("%Y-%m-%d"),
-                    post.created.strftime("%H:%M:%S"),
+                    local_created.strftime("%Y-%m-%d"),
+                    local_created.strftime("%H:%M:%S")
                 ]
             )
 
