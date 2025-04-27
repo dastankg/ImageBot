@@ -1,8 +1,9 @@
 import logging
 import os
 import json
+import re
+import subprocess
 from typing import Optional, Dict, Any
-
 import aiohttp
 import redis.asyncio as redis_async
 from asgiref.sync import sync_to_async
@@ -10,13 +11,20 @@ from django.core.files.base import File
 from post.models import Post
 from shop.models import Shop, Telephone
 from tgbot.tgConfig.tgConfig import load_config
+import piexif
+from PIL import Image
+from datetime import datetime, timedelta
+
 
 logger = logging.getLogger(__name__)
 
 config = load_config()
 
 redis_client = redis_async.Redis(
-    host=config.redis.redis_host, port=config.redis.redis_port, db=config.redis.redis_db
+    host=config.redis.redis_host,
+    port=config.redis.redis_port,
+    db=config.redis.redis_db,
+    password=config.redis.redis_password,
 )
 
 
@@ -53,12 +61,12 @@ async def get_shop_by_phone(phone_number: str):
         return None
 
 
-async def download_photo(file_url: str, filename: str):
+async def download_file(file_url: str, filename: str):
     try:
-        os.makedirs("media/posts", exist_ok=True)
+        os.makedirs("media/documents", exist_ok=True)
 
-        save_path = f"media/posts/{filename}"
-        relative_path = f"posts/{filename}"
+        save_path = f"media/documents/{filename}"
+        relative_path = f"documents/{filename}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(file_url) as response:
@@ -68,28 +76,52 @@ async def download_photo(file_url: str, filename: str):
                 with open(save_path, "wb") as f:
                     f.write(await response.read())
 
+        file_extension = os.path.splitext(filename.lower())[1]
+        image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
+
+        if any(file_extension == ext for ext in image_extensions):
+            is_valid = await sync_to_async(check_photo_creation_time)(save_path)
+            if not is_valid:
+                if os.path.exists(save_path):
+                    os.remove(save_path)
+                raise Exception(
+                    "Фото не содержит необходимые метаданные или было сделано более 3 минут назад."
+                )
+
         return relative_path
     except Exception as e:
-        logger.error(f"Error in download_photo: {e}")
+        logger.error(f"Error in download_file: {e}")
         raise
 
 
-async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=None):
+async def save_file_to_post(
+    shop_id, shop_name, relative_path, latitude=None, longitude=None
+):
     try:
         shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
 
         post = Post(shop=shop, latitude=latitude, longitude=longitude)
-
         await sync_to_async(post.save)()
 
         file_path = f"media/{relative_path}"
         file_name = os.path.basename(file_path)
 
+        file_extension = os.path.splitext(file_name.lower())[1]
+        image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
+
         with open(file_path, "rb") as f:
-            await sync_to_async(
-                lambda: post.image.save(file_name, File(f), save=True)
-            )()
-        os.remove(file_path)
+            file_content = File(f)
+            if any(file_extension == ext for ext in image_extensions):
+                await sync_to_async(
+                    lambda: post.image.save(file_name, file_content, save=True)
+                )()
+            else:
+                await sync_to_async(
+                    lambda: post.document.save(file_name, file_content, save=True)
+                )()
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
         if latitude and longitude and not post.address:
             try:
@@ -102,8 +134,9 @@ async def save_photo_to_post(shop_id, relative_path, latitude=None, longitude=No
 
         return post.id
     except Exception as e:
-        logger.error(f"Error in save_photo_to_post: {e}")
+        logger.error(f"Error in save_file_to_post: {e}")
         raise
+
 
 async def get_address_from_coordinates(latitude, longitude):
     try:
@@ -123,4 +156,108 @@ async def get_address_from_coordinates(latitude, longitude):
         return None
     except Exception as e:
         logger.error(f"Error in get_address_from_coordinates: {e}")
+        return None
+
+
+def check_photo_creation_time(file_path):
+    try:
+        file_extension = os.path.splitext(file_path.lower())[1]
+
+        if file_extension == ".heic":
+            metadata = get_heic_metadata(file_path)
+            if not metadata:
+                logger.warning(f"Метаданные отсутствуют в HEIC файле: {file_path}")
+                return False
+
+            date_time_str = None
+            for field in ["DateTimeOriginal", "CreateDate"]:
+                if field in metadata and metadata[field]:
+                    date_time_str = metadata[field]
+                    break
+
+            if not date_time_str:
+                logger.warning(
+                    f"Данные о времени создания отсутствуют в HEIC: {file_path}"
+                )
+                return False
+
+            match = re.match(
+                r"(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):(\d{2})", date_time_str
+            )
+            if not match:
+                logger.warning(f"Неизвестный формат даты в HEIC: {date_time_str}")
+                return False
+
+            year, month, day, hour, minute, second = map(int, match.groups())
+            photo_time = datetime(year, month, day, hour, minute, second)
+
+            current_time = datetime.now()
+            time_diff = current_time - photo_time
+
+            return time_diff <= timedelta(minutes=3)
+
+        else:
+            try:
+                img = Image.open(file_path)
+
+                if not hasattr(img, "_getexif") or not img._getexif():
+                    logger.warning(
+                        f"EXIF данные отсутствуют в изображении: {file_path}"
+                    )
+                    return False
+
+                exif_dict = piexif.load(img.info["exif"])
+
+                if "0th" in exif_dict and piexif.ImageIFD.DateTime in exif_dict["0th"]:
+                    date_time_str = exif_dict["0th"][piexif.ImageIFD.DateTime].decode(
+                        "utf-8"
+                    )
+                    photo_time = datetime.strptime(date_time_str, "%Y:%m:%d %H:%M:%S")
+
+                    current_time = datetime.now()
+                    time_diff = current_time - photo_time
+
+                    return time_diff <= timedelta(minutes=3)
+                else:
+                    logger.warning(
+                        f"Данные о времени создания отсутствуют в EXIF: {file_path}"
+                    )
+                    return False
+
+            except Exception as e:
+                logger.warning(f"Ошибка при чтении EXIF данных: {e}")
+                return False
+
+    except Exception as e:
+        logger.error(f"Ошибка при проверке времени создания файла: {e}")
+        return False
+
+
+def get_heic_metadata(file_path):
+    try:
+        try:
+            subprocess.run(["exiftool", "-ver"], capture_output=True, check=True)
+        except (subprocess.SubprocessError, FileNotFoundError):
+            logger.error(
+                "ExifTool не установлен. Установите с помощью 'sudo dnf install perl-Image-ExifTool'"
+            )
+            return None
+
+        result = subprocess.run(
+            ["exiftool", "-json", "-DateTimeOriginal", "-CreateDate", file_path],
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            logger.error(f"Ошибка при выполнении exiftool: {result.stderr}")
+            return None
+
+        metadata = json.loads(result.stdout)
+        if not metadata or len(metadata) == 0:
+            return None
+
+        return metadata[0]
+    except Exception as e:
+        logger.error(f"Ошибка при чтении метаданных HEIC: {e}")
         return None

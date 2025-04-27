@@ -21,14 +21,17 @@ def get_location_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
-def get_main_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
+def get_main_keyboard():
+    keyboard = ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📷 Загрузить фото")],
-            [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="❓ Помощь")],
+            [KeyboardButton(text="📎 Загрузить файл")],
+            [KeyboardButton(text="📋 Мои данные")],
+            [KeyboardButton(text="❓ Помощь")],
         ],
         resize_keyboard=True,
+        one_time_keyboard=False,
     )
+    return keyboard
 
 
 def get_photo_keyboard() -> ReplyKeyboardMarkup:
@@ -38,3 +41,12 @@ def get_photo_keyboard() -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
     )
+
+
+def get_file_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Отмена")]],
+        resize_keyboard=True,
+        one_time_keyboard=False,
+    )
+    return keyboard

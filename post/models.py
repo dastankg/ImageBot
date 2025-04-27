@@ -9,6 +9,7 @@ from shop.models import Shop, Agent
 class Post(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="posts")
     image = models.ImageField(upload_to="posts/")
+    document = models.FileField(upload_to="documents/%Y/%m/%d/", blank=True, null=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)
@@ -51,6 +52,7 @@ class PostAgent(models.Model):
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name="posts")
     shop = models.CharField(max_length=100)
     image = models.ImageField(upload_to="posts/")
+    document = models.FileField(upload_to="documents/%Y/%m/%d/", blank=True, null=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)

@@ -15,7 +15,10 @@ logger = logging.getLogger(__name__)
 config = load_config()
 
 redis_client = redis_async.Redis(
-    host=config.redis.redis_host, port=config.redis.redis_port, db=config.redis.redis_db
+    host=config.redis.redis_host,
+    port=config.redis.redis_port,
+    db=config.redis.redis_db,
+    password=config.redis.redis_password,
 )
 
 

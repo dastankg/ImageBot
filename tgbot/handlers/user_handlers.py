@@ -6,20 +6,20 @@ from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
-from tgbotAgent.FSM.fsm import UserState
+from tgbot.FSM.fsm import UserState
 
 from tgbot.handlers.utils import (
-    download_photo,
     get_shop_by_phone,
     get_user_profile,
-    save_photo_to_post,
     save_user_profile,
+    download_file,
+    save_file_to_post,
 )
 from tgbot.keyboard.keyboards import (
     get_contact_keyboard,
     get_location_keyboard,
     get_main_keyboard,
-    get_photo_keyboard,
+    get_file_keyboard,
 )
 
 router = Router()
@@ -129,25 +129,24 @@ async def handle_location(message: Message, state: FSMContext):
         await state.set_state(UserState.unauthorized)
         return
 
-    # Save location to state
     await state.update_data(
         location={
             "latitude": message.location.latitude,
             "longitude": message.location.longitude,
         }
     )
-    await state.set_state(UserState.waiting_for_photo)
+    await state.set_state(UserState.waiting_for_file)
 
     await message.answer(
-        "📍 Геолокация получена!\n\nТеперь отправьте фотографию магазина.",
-        reply_markup=get_photo_keyboard(),
+        "📍 Геолокация получена!\n\nТеперь отправьте файл.",
+        reply_markup=get_file_keyboard(),
     )
 
 
-@router.message(F.content_type == ContentType.PHOTO)
-async def handle_photo(message: Message, bot: Bot, state: FSMContext):
+@router.message(F.content_type == ContentType.DOCUMENT)
+async def handle_file(message: Message, bot: Bot, state: FSMContext):
     telegram_id = message.from_user.id
-    logger.info(f"Получено фото от user_id={telegram_id}")
+    logger.info(f"Получен файл от user_id={telegram_id}")
 
     try:
         user_profile = await get_user_profile(telegram_id)
@@ -172,65 +171,89 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
             await message.answer("Ваш магазин не зарегистрирован.")
             return
 
-        photo = message.photo[-1]
-        file_id = photo.file_id
+        document = message.document
+        file_id = document.file_id
         file = await bot.get_file(file_id)
         file_path = file.file_path
+        file_name = (
+            document.file_name or f"{uuid.uuid4().hex}{os.path.splitext(file_path)[1]}"
+        )
 
         logger.info(
-            f"Загрузка фото от {telegram_id}: file_id={file_id}, path={file_path}"
+            f"Загрузка файла от {telegram_id}: file_id={file_id}, path={file_path}, name={file_name}"
         )
 
         file_url = (
             f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN')}/{file_path}"
         )
-        filename = f"{uuid.uuid4().hex}.jpg"
 
-        status_message = await message.answer("⏳ Загрузка фотографии...")
+        status_message = await message.answer("⏳ Загрузка файла...")
 
         try:
-            relative_path = await download_photo(file_url, filename)
-            await save_photo_to_post(
+            relative_path = await download_file(file_url, file_name)
+
+            await save_file_to_post(
                 shop.id,
+                shop.shop_name,
                 relative_path,
                 latitude=location["latitude"],
                 longitude=location["longitude"],
             )
 
-            logger.info(f"Фото сохранено: {filename} для магазина {shop.shop_name}")
+            logger.info(f"Файл сохранен: {file_name} для магазина {shop.shop_name}")
 
             await state.update_data(location=None)
             await state.set_state(UserState.authorized)
 
             await bot.edit_message_text(
-                f"✅ Фото успешно сохранено и связано с магазином '{shop.shop_name}'.",
+                f"✅ Файл успешно сохранен и связан с магазином '{shop.shop_name}'.",
                 chat_id=status_message.chat.id,
                 message_id=status_message.message_id,
             )
 
             await message.answer("Что дальше?", reply_markup=get_main_keyboard())
 
-        except Exception:
-            logger.exception(f"Ошибка при сохранении фото от {telegram_id}")
-            await bot.edit_message_text(
-                "❌ Ошибка при сохранении фото.",
-                chat_id=status_message.chat.id,
-                message_id=status_message.message_id,
+        except Exception as e:
+            error_message = str(e)
+            logger.exception(
+                f"Ошибка при сохранении файла от {telegram_id}: {error_message}"
             )
 
-    except Exception:
-        logger.exception(f"Ошибка в handle_photo от {telegram_id}")
+            if "более 3 минут назад" in error_message:
+                await bot.edit_message_text(
+                    "❌ Фото сделано более 3 минут назад. Пожалуйста, сделайте свежее фото.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
+            elif (
+                "EXIF данные отсутствуют" in error_message
+                or "метаданные отсутствуют" in error_message.lower()
+            ):
+                await bot.edit_message_text(
+                    "❌ Фото не содержит необходимые метаданные (EXIF). Пожалуйста, сделайте фото через камеру телефона.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
+            else:
+                await bot.edit_message_text(
+                    "❌ Ошибка при сохранении файла.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
+
+    except Exception as e:
+        logger.exception(f"Ошибка в handle_file от {telegram_id}: {str(e)}")
         await message.answer("❗ Неизвестная ошибка.")
 
 
-@router.message(F.text == "📷 Загрузить фото")
-async def upload_photo_command(message: Message, state: FSMContext):
+@router.message(F.text == "📎 Загрузить файл")
+async def upload_file_command(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
 
     user_profile = await get_user_profile(telegram_id)
     if not user_profile:
         await message.answer(
-            "Для загрузки фотографий необходимо авторизоваться. "
+            "Для загрузки файлов необходимо авторизоваться. "
             "Пожалуйста, поделитесь своим контактом.",
             reply_markup=get_contact_keyboard(),
         )
