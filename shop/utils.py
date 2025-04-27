@@ -163,7 +163,7 @@ def export_agent_posts_to_excel(modeladmin, request, queryset):
 
         for i, post in enumerate(posts_list):
             current_time = post.created
-
+            local_created = localtime(post.created)
             time_diff_str = ""
             if previous_time and i % 2 != 0:
                 time_diff = current_time - previous_time
@@ -176,8 +176,8 @@ def export_agent_posts_to_excel(modeladmin, request, queryset):
                 post.shop,
                 f"http://139.59.2.151:8000/media/{post.image}",
                 post.address,
-                post.created.strftime("%Y-%m-%d"),
-                post.created.strftime("%H:%M:%S"),
+                local_created.strftime("%Y-%m-%d"),
+                local_created.strftime("%H:%M:%S"),
                 time_diff_str,
             ]
             ws.append(row_data)
