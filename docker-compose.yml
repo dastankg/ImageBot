@@ -32,6 +32,9 @@ services:
       - redis
     volumes:
       - ./media:/app/media
+      - ./static:/app/static
+
+
     environment:
       DJANGO_SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
