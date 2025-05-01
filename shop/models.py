@@ -4,8 +4,10 @@ from django.db import models
 class Shop(models.Model):
     shop_name = models.CharField(max_length=255)
     owner_name = models.CharField(max_length=255)
+    manager_name = models.CharField(max_length=255)
     address = models.TextField()
-
+    Region = models.CharField(max_length=255)
+    Description = models.CharField(max_length=255, null=True, blank=True)
     def __str__(self):
         return self.shop_name
 
