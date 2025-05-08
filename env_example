@@ -1,14 +1,18 @@
-# Настройки для Telegram-бота
-TG_TOKEN='ваш_токен_бота'
+BOT_TOKEN=
+BOT_TOKEN2=
 
-# Настройки Django
-SECRET_KEY='секретный_ключ_django'
+SECRET_KEY=
 DEBUG=True
 
-# Настройки базы данных
 DB_ENGINE=
 DB_NAME=
 DB_USER=
 DB_PASSWORD=
-DB_HOST=
+DB_HOST=db
 DB_PORT=
+
+REDIS_PASSWORD=
+REDIS_URL=
+REDIS_PORT=
+REDIS_HOST=
+REDIS_DB=
