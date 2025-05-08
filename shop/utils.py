@@ -9,21 +9,7 @@ from django.contrib import admin
 from django.utils.timezone import localtime
 
 
-
 class DateRangeForm(forms.Form):
-    start_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
-        required=False,
-        label="С даты (День/Месяц/Год)",
-    )
-    end_date = forms.DateField(
-        widget=forms.DateInput(attrs={"type": "date"}),
-        required=False,
-        label="По дату (День/Месяц/Год)",
-    )
-
-
-class DateRangeFormAgent(forms.Form):
     start_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date", "name": "start_date"}),
         required=False,
@@ -93,7 +79,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     post.address,
                     shop.address,
                     local_created.strftime("%Y-%m-%d"),
-                    local_created.strftime("%H:%M:%S")
+                    local_created.strftime("%H:%M:%S"),
                 ]
             )
 
@@ -114,7 +100,7 @@ def export_agent_posts_to_excel(modeladmin, request, queryset):
         )
         return
     if "apply" not in request.POST:
-        form = DateRangeFormAgent()
+        form = DateRangeForm()
         context = {
             "queryset": queryset,
             "form": form,

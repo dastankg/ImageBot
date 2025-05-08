@@ -1,8 +1,6 @@
 import os
-
 import requests
 from django.db import models
-
 from shop.models import Shop, Agent
 
 
