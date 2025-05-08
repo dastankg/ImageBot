@@ -15,8 +15,8 @@ django.setup()
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from tgbotAgent.handlers.utils import config
-from tgbotAgent.handlers.user_handlers import router as user_router
+from bots.agent_bot.handlers.utils import config
+from bots.agent_bot.handlers.user_handlers import router as user_router
 
 
 logging.basicConfig(

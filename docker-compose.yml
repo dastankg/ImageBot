@@ -54,7 +54,7 @@ services:
     build: .
     container_name: imagebot-telegram
     working_dir: /app
-    command: python tgbot/main.py
+    command: python bots/customer_bot/main.py
     volumes:
       - .:/app
     depends_on:
@@ -70,7 +70,7 @@ services:
     build: .
     container_name: imagebot-telegram-agent
     working_dir: /app
-    command: python tgbotAgent/main.py
+    command: python bots/agent_bot/main.py
     volumes:
       - .:/app
     depends_on:

@@ -8,7 +8,7 @@ from asgiref.sync import sync_to_async
 from django.core.files.base import File
 from post.models import PostAgent
 from shop.models import Agent
-from tgbotAgent.tgConfig.tgConfig import load_config
+from bots.agent_bot.tgConfig.tgConfig import load_config
 
 logger = logging.getLogger(__name__)
 
