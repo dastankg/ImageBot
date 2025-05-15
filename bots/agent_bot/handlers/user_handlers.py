@@ -184,7 +184,7 @@ async def handle_location(message: Message, state: FSMContext):
     )
 
 
-@router.message(F.content_type == ContentType.PHOTO)
+@router.message(F.content_type == ContentType.DOCUMENT)
 async def handle_photo(message: Message, bot: Bot, state: FSMContext):
     telegram_id = message.from_user.id
     logger.info(f"Получено фото от user_id={telegram_id}")
@@ -219,10 +219,13 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
             await message.answer("Вы не зарегистрированы как агент.")
             return
 
-        photo = message.photo[-1]
-        file_id = photo.file_id
+        document = message.document
+        file_id = document.file_id
         file = await bot.get_file(file_id)
         file_path = file.file_path
+        file_name = (
+                document.file_name or f"{uuid.uuid4().hex}{os.path.splitext(file_path)[1]}"
+        )
 
         logger.info(
             f"Загрузка фото от {telegram_id}: file_id={file_id}, path={file_path}"
@@ -236,7 +239,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         status_message = await message.answer("⏳ Загрузка фотографии...")
 
         try:
-            relative_path = await download_photo(file_url, filename)
+            relative_path = await download_photo(file_url, file_name)
             await save_photo_to_post(
                 agent.id,
                 shop_name,
@@ -245,7 +248,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
                 longitude=location["longitude"],
             )
 
-            logger.info(f"Фото сохранено: {filename} для магазина {shop_name}")
+            logger.info(f"Фото сохранено: {file_name} для магазина {shop_name}")
 
             await state.update_data(location=None, shop_name=None)
             await state.set_state(UserState.authorized)
@@ -258,13 +261,34 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
 
             await message.answer("Что дальше?", reply_markup=get_main_keyboard())
 
-        except Exception:
-            logger.exception(f"Ошибка при сохранении фото от {telegram_id}")
-            await bot.edit_message_text(
-                "❌ Ошибка при сохранении фото.",
-                chat_id=status_message.chat.id,
-                message_id=status_message.message_id,
+
+        except Exception as e:
+            error_message = str(e)
+            logger.exception(
+                f"Ошибка при сохранении файла от {telegram_id}: {error_message}"
             )
+            if "более 3 минут назад" in error_message:
+                await bot.edit_message_text(
+                    "❌ Фото сделано более 3 минут назад. Пожалуйста, сделайте свежее фото.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
+            elif (
+                    "EXIF данные отсутствуют" in error_message
+                    or "метаданные отсутствуют" in error_message.lower()
+            ):
+
+                await bot.edit_message_text(
+                    "❌ Фото не содержит необходимые метаданные (EXIF). Пожалуйста, сделайте фото через камеру телефона.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
+            else:
+                await bot.edit_message_text(
+                    "❌ Ошибка при сохранении файла.",
+                    chat_id=status_message.chat.id,
+                    message_id=status_message.message_id,
+                )
 
     except Exception:
         logger.exception(f"Ошибка в handle_photo от {telegram_id}")
