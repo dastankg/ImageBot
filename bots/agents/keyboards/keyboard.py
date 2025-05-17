@@ -1,6 +1,18 @@
 from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
 
 
+
+def get_main_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📷 Загрузить фото")],
+            [KeyboardButton(text="👤 Мой профиль"), KeyboardButton(text="❓ Помощь")],
+        ],
+        resize_keyboard=True,
+    )
+
+
+
 def get_contact_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
@@ -14,25 +26,21 @@ def get_contact_keyboard() -> ReplyKeyboardMarkup:
 def get_location_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)]
+            [KeyboardButton(text="📍 Отправить геолокацию", request_location=True)],
+            [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
 
 
-def get_main_keyboard():
-    keyboard = ReplyKeyboardMarkup(
+def get_back_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
         keyboard=[
-            [KeyboardButton(text="📎 Загрузить файл")],
-            [KeyboardButton(text="📋 Мои данные")],
-            [KeyboardButton(text="❓ Помощь")],
+            [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True,
-        one_time_keyboard=False,
     )
-    return keyboard
-
 
 def get_photo_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
@@ -41,12 +49,3 @@ def get_photo_keyboard() -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
     )
-
-
-def get_file_keyboard():
-    keyboard = ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Отмена")]],
-        resize_keyboard=True,
-        one_time_keyboard=False,
-    )
-    return keyboard

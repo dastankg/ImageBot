@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-
 from environs import Env
 
 
@@ -14,7 +13,6 @@ class RedisConfig:
     redis_port: int
     redis_db: int
     redis_password: str
-
 
 @dataclass
 class Config:
@@ -33,6 +31,7 @@ def load_config(path: str | None = None) -> Config:
             redis_host=env("REDIS_HOST", "redis"),
             redis_port=env.int("REDIS_PORT", 6379),
             redis_db=env.int("REDIS_DB", 1),
-            redis_password=env("REDIS_PASSWORD"),
+            redis_password=env("REDIS_PASSWORD", ""),
         ),
     )
+

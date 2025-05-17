@@ -2,10 +2,8 @@ import asyncio
 import os
 import logging
 import time
+from bots.agents.keyboards.menu import set_menu
 
-from dotenv import load_dotenv
-
-load_dotenv()
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
@@ -15,9 +13,8 @@ django.setup()
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from bots.agent_bot.handlers.utils import config
-from bots.agent_bot.handlers.user_handlers import router as user_router
-
+from bots.agents.tgConfig.tgConfig import load_config
+from bots.agents.handlers.user_handlers import router as user_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,6 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.Formatter.converter = time.gmtime
 
+config = load_config()
 
 async def main():
     logger.info("Starting bot")
@@ -35,6 +33,7 @@ async def main():
         token=config.tg_bot.token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
+    await set_menu(bot)
 
     dp = Dispatcher()
     dp.include_router(user_router)

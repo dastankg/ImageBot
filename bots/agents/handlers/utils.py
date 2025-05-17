@@ -1,22 +1,22 @@
-import logging
+from datetime import datetime, timedelta
 import os
-import json
 import re
-import subprocess
-from typing import Optional, Dict, Any
-import aiohttp
-import redis.asyncio as redis_async
+from typing import Any
+import json
+import logging
 from asgiref.sync import sync_to_async
+import redis.asyncio as redis_async
+from bots.agents.tgConfig.tgConfig import load_config
+from aiogram.types import Message
+from aiogram.utils.keyboard import ReplyKeyboardBuilder
+from aiogram import types
+import subprocess
+import aiohttp
+from post.models import PostAgent
+from shop.models import Agent
 from django.core.files.base import File
-from post.models import Post
-from shop.models import Shop, Telephone
-from bots.customer_bot.tgConfig.tgConfig import load_config
 import piexif
 from PIL import Image
-from datetime import datetime, timedelta
-
-
-logger = logging.getLogger(__name__)
 
 config = load_config()
 
@@ -28,11 +28,25 @@ redis_client = redis_async.Redis(
 )
 
 
-async def get_user_profile(telegram_id: int) -> Optional[Dict[str, Any]]:
+logger = logging.getLogger(__name__)
+
+async def get_user_profile(telegram_id: int) -> dict[str, Any] | None:
     key = f"user:{telegram_id}"
     data = await redis_client.get(key)
     return json.loads(data) if data else None
 
+async def get_agent_by_phone(phone_number: str):
+    try:
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+
+        agent = await sync_to_async(
+            lambda: Agent.objects.filter(agent_number=phone_number).first()
+        )()
+        return agent
+    except Exception as e:
+        logger.error(f"Error in get_agent_by_phone: {e}")
+        return None
 
 async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
     try:
@@ -45,28 +59,52 @@ async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
         return False
 
 
-async def get_shop_by_phone(phone_number: str):
-    try:
-        if not phone_number.startswith("+"):
+async def schedule(message: Message):
+    user = await get_user_profile(message.from_user.id)
+    phone_number = user["phone_number"]
+    if not phone_number.startswith("+"):
             phone_number = f"+{phone_number}"
-        telephone = await sync_to_async(
-            lambda: Telephone.objects.select_related("shop").get(number=phone_number)
-        )()
-        if telephone and hasattr(telephone, "shop"):
-            shop = await sync_to_async(lambda: getattr(telephone, "shop", None))()
-            return shop
-        return None
-    except Exception as e:
-        logger.error(f"Error in get_shop_by_phone: {e}")
-        return None
+
+    agent_phone = phone_number
+
+    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    current_day = weekdays[datetime.now().weekday()]
+
+    agent = await sync_to_async(
+        lambda: Agent.objects.filter(agent_number=agent_phone).first()
+    )()
+    if not agent:
+        await message.answer(f"Не удалось найти агента по номеру телефона: {agent_phone}")
+        return
 
 
-async def download_file(file_url: str, filename: str):
+    stores_attr = f"{current_day}_stores"
+    stores = await sync_to_async(
+        lambda: list(getattr(agent, stores_attr).all())
+    )()
+
+    if not stores:
+        await message.answer(f"На сегодня ({current_day.capitalize()}) у вас нет назначенных магазинов.")
+        return
+
+    builder = ReplyKeyboardBuilder()
+
+    for store in stores:
+        builder.add(types.KeyboardButton(text=store.name))
+
+    builder.adjust(2)
+
+    await message.answer(
+        f"Ваши магазины на сегодня ({current_day.capitalize()}):\n\nВыберите магазин:",
+        reply_markup=builder.as_markup(resize_keyboard=True)
+    )
+
+async def download_photo(file_url: str, filename: str):
     try:
-        os.makedirs("media/documents", exist_ok=True)
+        os.makedirs("media/posts", exist_ok=True)
 
-        save_path = f"media/documents/{filename}"
-        relative_path = f"documents/{filename}"
+        save_path = f"media/posts/{filename}"
+        relative_path = f"posts/{filename}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(file_url) as response:
@@ -75,12 +113,10 @@ async def download_file(file_url: str, filename: str):
 
                 with open(save_path, "wb") as f:
                     f.write(await response.read())
-
         file_extension = os.path.splitext(filename.lower())[1]
         image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
-
         if any(file_extension == ext for ext in image_extensions):
-            is_valid = await sync_to_async(check_photo_creation_time)(save_path)
+            is_valid = await check_photo_creation_time(save_path)
             if not is_valid:
                 if os.path.exists(save_path):
                     os.remove(save_path)
@@ -90,17 +126,19 @@ async def download_file(file_url: str, filename: str):
 
         return relative_path
     except Exception as e:
-        logger.error(f"Error in download_file: {e}")
+        logger.error(f"Error in download_photo: {e}")
         raise
 
 
-async def save_file_to_post(
-    shop_id, shop_name, relative_path, latitude=None, longitude=None
+async def save_photo_to_post(
+    agent_id, shop_name, relative_path, latitude=None, longitude=None
 ):
     try:
-        shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
+        agent = await sync_to_async(lambda: Agent.objects.get(id=agent_id))()
 
-        post = Post(shop=shop, latitude=latitude, longitude=longitude)
+        post = PostAgent(
+            agent=agent, shop=shop_name, latitude=latitude, longitude=longitude
+        )
         await sync_to_async(post.save)()
 
         file_path = f"media/{relative_path}"
@@ -108,7 +146,6 @@ async def save_file_to_post(
 
         file_extension = os.path.splitext(file_name.lower())[1]
         image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
-
         with open(file_path, "rb") as f:
             file_content = File(f)
             if any(file_extension == ext for ext in image_extensions):
@@ -134,7 +171,7 @@ async def save_file_to_post(
 
         return post.id
     except Exception as e:
-        logger.error(f"Error in save_file_to_post: {e}")
+        logger.error(f"Error in save_photo_to_post: {e}")
         raise
 
 
@@ -159,7 +196,12 @@ async def get_address_from_coordinates(latitude, longitude):
         return None
 
 
-def check_photo_creation_time(file_path):
+async def get_shop_by_phone(phone_number: str):
+    logger.warning("get_shop_by_phone is deprecated, use get_agent_by_phone instead")
+    return await get_agent_by_phone(phone_number)
+
+
+async def check_photo_creation_time(file_path):
     try:
         file_extension = os.path.splitext(file_path.lower())[1]
 
@@ -233,7 +275,7 @@ def check_photo_creation_time(file_path):
         return False
 
 
-def get_heic_metadata(file_path):
+async def get_heic_metadata(file_path):
     try:
         try:
             subprocess.run(["exiftool", "-ver"], capture_output=True, check=True)

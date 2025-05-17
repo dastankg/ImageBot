@@ -50,37 +50,37 @@ services:
     env_file:
       - .env
 
-  tgbot:
-    build: .
-    container_name: imagebot-telegram
-    working_dir: /app
-    command: python bots/customer_bot/main.py
-    volumes:
-      - .:/app
-    depends_on:
-      - web
-      - db
-    environment:
-      PYTHONPATH: /app
-      DJANGO_SETTINGS_MODULE: config.settings
-    env_file:
-      - .env
+#  tgbot:
+#    build: .
+#    container_name: imagebot-telegram
+#    working_dir: /app
+#    command: python bots/customer_bot/main.py
+#    volumes:
+#      - .:/app
+#    depends_on:
+#      - web
+#      - db
+#    environment:
+#      PYTHONPATH: /app
+#      DJANGO_SETTINGS_MODULE: config.settings
+#    env_file:
+#      - .env
 
-  tgbot2:
-    build: .
-    container_name: imagebot-telegram-agent
-    working_dir: /app
-    command: python bots/agent_bot/main.py
-    volumes:
-      - .:/app
-    depends_on:
-      - web
-      - db
-    environment:
-      PYTHONPATH: /app
-      DJANGO_SETTINGS_MODULE: config.settings
-    env_file:
-      - .env
+#  tgbot2:
+#    build: .
+#    container_name: imagebot-telegram-agent
+#    working_dir: /app
+#    command: python bots/agent_bot/main.py
+#    volumes:
+#      - .:/app
+#    depends_on:
+#      - web
+#      - db
+#    environment:
+#      PYTHONPATH: /app
+#      DJANGO_SETTINGS_MODULE: config.settings
+#    env_file:
+#      - .env
 
 volumes:
   postgres_data:
