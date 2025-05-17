@@ -8,9 +8,21 @@ import logging
 from aiogram import F, Router, Bot
 
 from bots.agents.fsm.fsm import UserState
-from bots.agents.handlers.utils import get_user_profile, get_agent_by_phone, save_user_profile, schedule, download_photo, save_photo_to_post
-from bots.agents.keyboards.keyboard import get_contact_keyboard, get_main_keyboard, get_location_keyboard, \
-    get_back_keyboard, get_photo_keyboard
+from bots.agents.handlers.utils import (
+    get_user_profile,
+    get_agent_by_phone,
+    save_user_profile,
+    schedule,
+    download_photo,
+    save_photo_to_post,
+)
+from bots.agents.keyboards.keyboard import (
+    get_contact_keyboard,
+    get_main_keyboard,
+    get_location_keyboard,
+    get_back_keyboard,
+    get_photo_keyboard,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -189,6 +201,7 @@ async def handle_location(message: Message, state: FSMContext):
         reply_markup=get_photo_keyboard(),
     )
 
+
 @router.message(F.content_type == ContentType.DOCUMENT)
 async def handle_photo(message: Message, bot: Bot, state: FSMContext):
     telegram_id = message.from_user.id
@@ -229,7 +242,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         file = await bot.get_file(file_id)
         file_path = file.file_path
         file_name = (
-                document.file_name or f"{uuid.uuid4().hex}{os.path.splitext(file_path)[1]}"
+            document.file_name or f"{uuid.uuid4().hex}{os.path.splitext(file_path)[1]}"
         )
 
         logger.info(
@@ -237,7 +250,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         )
 
         file_url = (
-            f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN2')}/{file_path}"
+            f"https://api.telegram.org/file/bot{os.getenv('BOT_TOKEN1')}/{file_path}"
         )
 
         status_message = await message.answer("⏳ Загрузка фотографии...")
@@ -265,7 +278,6 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
 
             await message.answer("Что дальше?", reply_markup=get_main_keyboard())
 
-
         except Exception as e:
             error_message = str(e)
             logger.exception(
@@ -278,10 +290,9 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
                     message_id=status_message.message_id,
                 )
             elif (
-                    "EXIF данные отсутствуют" in error_message
-                    or "метаданные отсутствуют" in error_message.lower()
+                "EXIF данные отсутствуют" in error_message
+                or "метаданные отсутствуют" in error_message.lower()
             ):
-
                 await bot.edit_message_text(
                     "❌ Фото не содержит необходимые метаданные (EXIF). Пожалуйста, сделайте фото через камеру телефона.",
                     chat_id=status_message.chat.id,
@@ -297,6 +308,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
     except Exception:
         logger.exception(f"Ошибка в handle_photo от {telegram_id}")
         await message.answer("❗ Неизвестная ошибка.")
+
 
 @router.message(F.text == "🔙 Назад")
 async def back_command(message: Message, state: FSMContext):

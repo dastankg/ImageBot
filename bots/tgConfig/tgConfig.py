@@ -20,12 +20,12 @@ class Config:
     redis: RedisConfig
 
 
-def load_config(path: str | None = None) -> Config:
+def load_config(path: str | None = None, bot_number=1) -> Config:
     env = Env()
     env.read_env(path)
     return Config(
         tg_bot=TgBot(
-            token=env("BOT_TOKEN2"),
+            token=env(f"BOT_TOKEN{bot_number}"),
         ),
         redis=RedisConfig(
             redis_host=env("REDIS_HOST", "redis"),

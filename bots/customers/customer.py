@@ -2,7 +2,7 @@ import asyncio
 import os
 import logging
 import time
-from bots.agents.keyboards.menu import set_menu
+from bots.customers.keyboards.menu import set_menu
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
@@ -14,7 +14,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from bots.tgConfig.tgConfig import load_config
-from bots.agents.handlers.user_handlers import router as user_router
+from bots.customers.handlers.user_handlers import router as customer_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,7 +24,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logging.Formatter.converter = time.gmtime
 
-config = load_config(bot_number=1)
+config = load_config(bot_number=2)
 
 
 async def main():
@@ -37,7 +37,7 @@ async def main():
     await set_menu(bot)
 
     dp = Dispatcher()
-    dp.include_router(user_router)
+    dp.include_router(customer_router)
 
     try:
         logger.info("Bot is starting")

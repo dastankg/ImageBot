@@ -6,7 +6,7 @@ import json
 import logging
 from asgiref.sync import sync_to_async
 import redis.asyncio as redis_async
-from bots.agents.tgConfig.tgConfig import load_config
+from bots.tgConfig.tgConfig import load_config
 from aiogram.types import Message
 from aiogram.utils.keyboard import ReplyKeyboardBuilder
 from aiogram import types
@@ -18,7 +18,7 @@ from django.core.files.base import File
 import piexif
 from PIL import Image
 
-config = load_config()
+config = load_config(bot_number=1)
 
 redis_client = redis_async.Redis(
     host=config.redis.redis_host,
@@ -30,10 +30,12 @@ redis_client = redis_async.Redis(
 
 logger = logging.getLogger(__name__)
 
+
 async def get_user_profile(telegram_id: int) -> dict[str, Any] | None:
     key = f"user:{telegram_id}"
     data = await redis_client.get(key)
     return json.loads(data) if data else None
+
 
 async def get_agent_by_phone(phone_number: str):
     try:
@@ -47,6 +49,7 @@ async def get_agent_by_phone(phone_number: str):
     except Exception as e:
         logger.error(f"Error in get_agent_by_phone: {e}")
         return None
+
 
 async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
     try:
@@ -63,28 +66,37 @@ async def schedule(message: Message):
     user = await get_user_profile(message.from_user.id)
     phone_number = user["phone_number"]
     if not phone_number.startswith("+"):
-            phone_number = f"+{phone_number}"
+        phone_number = f"+{phone_number}"
 
     agent_phone = phone_number
 
-    weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+    weekdays = [
+        "monday",
+        "tuesday",
+        "wednesday",
+        "thursday",
+        "friday",
+        "saturday",
+        "sunday",
+    ]
     current_day = weekdays[datetime.now().weekday()]
 
     agent = await sync_to_async(
         lambda: Agent.objects.filter(agent_number=agent_phone).first()
     )()
     if not agent:
-        await message.answer(f"Не удалось найти агента по номеру телефона: {agent_phone}")
+        await message.answer(
+            f"Не удалось найти агента по номеру телефона: {agent_phone}"
+        )
         return
 
-
     stores_attr = f"{current_day}_stores"
-    stores = await sync_to_async(
-        lambda: list(getattr(agent, stores_attr).all())
-    )()
+    stores = await sync_to_async(lambda: list(getattr(agent, stores_attr).all()))()
 
     if not stores:
-        await message.answer(f"На сегодня ({current_day.capitalize()}) у вас нет назначенных магазинов.")
+        await message.answer(
+            f"На сегодня ({current_day.capitalize()}) у вас нет назначенных магазинов."
+        )
         return
 
     builder = ReplyKeyboardBuilder()
@@ -96,8 +108,9 @@ async def schedule(message: Message):
 
     await message.answer(
         f"Ваши магазины на сегодня ({current_day.capitalize()}):\n\nВыберите магазин:",
-        reply_markup=builder.as_markup(resize_keyboard=True)
+        reply_markup=builder.as_markup(resize_keyboard=True),
     )
+
 
 async def download_photo(file_url: str, filename: str):
     try:

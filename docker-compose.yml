@@ -50,11 +50,26 @@ services:
     env_file:
       - .env
 
-  tgbot:
+  tgbotAgent:
     build: .
-    container_name: imagebot-telegram
+    container_name: imagebotAgent-telegram
     working_dir: /app
     command: python bots/agents/agent.py
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+      - db
+    environment:
+      PYTHONPATH: /app
+      DJANGO_SETTINGS_MODULE: config.settings
+    env_file:
+      - .env
+  tgbotCustomer:
+    build: .
+    container_name: imagebotCustomer-telegram
+    working_dir: /app
+    command: python bots/customers/customer.py
     volumes:
       - .:/app
     depends_on:
