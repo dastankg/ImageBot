@@ -6,7 +6,6 @@ from shop.models import Shop, Agent
 
 class BasePost(models.Model):
     image = models.ImageField(upload_to="posts/")
-    document = models.FileField(upload_to="documents/%Y/%m/%d/", blank=True, null=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     address = models.CharField(max_length=255, null=True, blank=True)

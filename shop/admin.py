@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django import forms
+from django.utils.safestring import mark_safe
+
 from post.models import Post
 from shop.models import Shop, Telephone, Agent, Store
 from shop.utils import export_posts_to_excel, export_agent_posts_to_excel
@@ -13,9 +15,23 @@ class TelephoneInline(admin.TabularInline):
 class PostInline(admin.TabularInline):
     model = Post
     extra = 1
-    fields = ("image", "created", "address")
-    readonly_fields = ("created",)
+    fields = ("post_id", "created", "address", "image_preview")
+    readonly_fields = ("post_id", "created", "image_preview")
     ordering = ("-created",)
+
+    def post_id(self, obj):
+        if obj.id:
+            url = f"/admin/post/post/{obj.id}/change/"
+            return mark_safe(f'<a href="{url}">{obj.id}</a>')
+        return "-"
+
+    def image_preview(self, obj):
+        if obj.image:
+            url = obj.image.url if hasattr(obj.image, 'url') else f"/media/{obj.image}"
+            return mark_safe(f'<a href="{url}" target="_blank">Посмотреть</a>')
+        return "-"
+
+
 
 
 class ManyToManyStoreWidget(forms.SelectMultiple):
@@ -24,7 +40,7 @@ class ManyToManyStoreWidget(forms.SelectMultiple):
 
 @admin.register(Shop)
 class ShopAdmin(admin.ModelAdmin):
-    list_display = ("shop_name", "owner_name", "get_telephones", "address")
+    list_display = ("shop_name", "owner_name", "get_telephones", "address", "region")
     search_fields = ("shop_name", "owner_name")
     list_filter = ("shop_name",)
     inlines = [TelephoneInline, PostInline]

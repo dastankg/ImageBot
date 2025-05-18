@@ -9,6 +9,23 @@ from django.contrib import admin
 from django.utils.timezone import localtime
 
 
+class DateRangeRegionForm(forms.Form):
+    start_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date", "name": "start_date"}),
+        required=False,
+        label="С даты (День/Месяц/Год)",
+    )
+    end_date = forms.DateField(
+        widget=forms.DateInput(attrs={"type": "date", "name": "end_date"}),
+        required=False,
+        label="По дату (День/Месяц/Год)",
+    )
+    region = forms.CharField(
+        widget=forms.TextInput(attrs={"name": "region"}),
+        required=False,
+        label="Регион",
+    )
+
 class DateRangeForm(forms.Form):
     start_date = forms.DateField(
         widget=forms.DateInput(attrs={"type": "date", "name": "start_date"}),
@@ -22,11 +39,14 @@ class DateRangeForm(forms.Form):
     )
 
 
+
 def export_posts_to_excel(modeladmin, request, queryset):
     start_date = request.POST.get("start_date")
     end_date = request.POST.get("end_date")
+    region = request.POST.get("region")
+
     if "apply" not in request.POST:
-        form = DateRangeForm()
+        form = DateRangeRegionForm()
         context = {
             "queryset": queryset,
             "form": form,
@@ -56,10 +76,14 @@ def export_posts_to_excel(modeladmin, request, queryset):
         "Изображение",
         "Адрес",
         "Адрес магазина",
+        "Регион",
         "Дата",
         "Время",
     ]
     ws.append(columns)
+
+    if region:
+        queryset = queryset.filter(region=region)
 
     for shop in queryset:
         posts = Post.objects.filter(shop=shop)
@@ -78,6 +102,7 @@ def export_posts_to_excel(modeladmin, request, queryset):
                     f"http://139.59.2.151:8000/media/{post.image}",
                     post.address,
                     shop.address,
+                    shop.region,
                     local_created.strftime("%Y-%m-%d"),
                     local_created.strftime("%H:%M:%S"),
                 ]
