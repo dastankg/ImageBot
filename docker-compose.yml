@@ -33,8 +33,6 @@ services:
     volumes:
       - ./media:/app/media
       - ./static:/app/static
-
-
     environment:
       DJANGO_SECRET_KEY: ${SECRET_KEY}
       DEBUG: ${DEBUG}
@@ -50,9 +48,9 @@ services:
     env_file:
       - .env
 
-  tgbotAgent:
+  tgbot-agent:
     build: .
-    container_name: imagebotAgent-telegram
+    container_name: imagebot-agent-telegram
     working_dir: /app
     command: python bots/agents/agent.py
     volumes:
@@ -65,9 +63,10 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
     env_file:
       - .env
-  tgbotCustomer:
+
+  tgbot-customer:
     build: .
-    container_name: imagebotCustomer-telegram
+    container_name: imagebot-customer-telegram
     working_dir: /app
     command: python bots/customers/customer.py
     volumes:
@@ -80,7 +79,6 @@ services:
       DJANGO_SETTINGS_MODULE: config.settings
     env_file:
       - .env
-
 
 volumes:
   postgres_data:
