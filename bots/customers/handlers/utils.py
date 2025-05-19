@@ -15,8 +15,8 @@ from PIL import Image
 from bots.tgConfig.redis_connect import redis_client
 
 
-
 logger = logging.getLogger(__name__)
+
 
 
 async def get_user_profile(telegram_id: int) -> dict[str, Any] | None:
@@ -46,6 +46,21 @@ async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
         key = f"user:{telegram_id}"
         user_data = {"phone_number": phone_number}
         await redis_client.set(key, json.dumps(user_data))
+
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+
+        telephone = await sync_to_async(
+            lambda: Telephone.objects.filter(number=phone_number).first()
+        )()
+
+        if telephone:
+            telephone.chat_id = str(telegram_id)
+            await sync_to_async(telephone.save)()
+            logger.info(f"Chat ID сохранён для номера {phone_number}")
+        else:
+            logger.warning(f"Номер {phone_number} не найден в базе Telephone")
+
         return True
     except Exception as e:
         logger.error(f"Error saving user profile to Redis: {e}")

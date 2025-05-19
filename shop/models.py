@@ -22,6 +22,7 @@ class Telephone(models.Model):
     shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="telephones")
     number = models.CharField(max_length=20, db_index=True, unique=True)
     is_owner = models.BooleanField(default=False)
+    chat_id = models.CharField(max_length=255, blank=True, null=True)
     def __str__(self):
         return self.number
 

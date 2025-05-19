@@ -4,6 +4,7 @@ import logging
 import time
 from bots.customers.keyboards.menu import set_menu
 
+
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 
 import django
@@ -15,6 +16,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from bots.tgConfig.tgConfig import load_config
 from bots.customers.handlers.user_handlers import router as customer_router
+from bots.customers.services.notification import setup_scheduler
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,7 +40,8 @@ async def main():
 
     dp = Dispatcher()
     dp.include_router(customer_router)
-
+    scheduler = setup_scheduler(bot)
+    scheduler.start()
     try:
         logger.info("Bot is starting")
         await bot.delete_webhook(drop_pending_updates=True)

@@ -10,6 +10,8 @@ from shop.utils import export_posts_to_excel, export_agent_posts_to_excel
 class TelephoneInline(admin.TabularInline):
     model = Telephone
     extra = 1
+    fields = ("number", "is_owner")
+
 
 
 class PostInline(admin.TabularInline):
