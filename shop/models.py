@@ -14,8 +14,8 @@ class Shop(models.Model):
         return self.shop_name
 
     class Meta:
-        verbose_name = _("Shop")
-        verbose_name_plural = _("Shops")
+        verbose_name = _("ShelfRent")
+        verbose_name_plural = _("ShelfRents")
 
 
 class Telephone(models.Model):
@@ -38,8 +38,8 @@ class Store(models.Model):
         return self.name
 
     class Meta:
-        verbose_name = _("Store")
-        verbose_name_plural = _("Stores")
+        verbose_name = _("Market")
+        verbose_name_plural = _("Markets")
 
 
 class Agent(models.Model):
@@ -86,5 +86,5 @@ class Agent(models.Model):
         return self.agent_name
 
     class Meta:
-        verbose_name = _("Agent")
-        verbose_name_plural = _("Agents")
+        verbose_name = _("Merchandiser")
+        verbose_name_plural = _("Merchandisers")
