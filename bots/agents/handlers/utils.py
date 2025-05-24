@@ -160,11 +160,19 @@ async def save_photo_to_post(
         file_path = f"media/{relative_path}"
         file_name = os.path.basename(file_path)
 
+        file_extension = os.path.splitext(file_name.lower())[1]
+        image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
+
         with open(file_path, "rb") as f:
             file_content = File(f)
-            await sync_to_async(
-                lambda: post.image.save(file_name, file_content, save=True)
-            )()
+            if any(file_extension == ext for ext in image_extensions):
+                await sync_to_async(
+                    lambda: post.image.save(file_name, file_content, save=True)
+                )()
+            else:
+                await sync_to_async(
+                    lambda: post.document.save(file_name, file_content, save=True)
+                )()
 
         if os.path.exists(file_path):
             os.remove(file_path)

@@ -13,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 
 async def send_monthly_notification(bot):
-    current_date = datetime.now().strftime("%d.%m.%Y")
-    message = f"🔔 Сегодня первое число месяца ({current_date})\nВы получили оплату?"
+
+    message = f"🔔 Сегодня первое число месяца\nВы получили оплату за прошлый месяц?"
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
