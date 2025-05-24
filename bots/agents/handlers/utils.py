@@ -169,10 +169,7 @@ async def save_photo_to_post(
                 await sync_to_async(
                     lambda: post.image.save(file_name, file_content, save=True)
                 )()
-            else:
-                await sync_to_async(
-                    lambda: post.document.save(file_name, file_content, save=True)
-                )()
+
 
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -292,7 +289,7 @@ async def check_photo_creation_time(file_path):
         return False
 
 
-async def get_heic_metadata(file_path):
+def get_heic_metadata(file_path):
     try:
         try:
             subprocess.run(["exiftool", "-ver"], capture_output=True, check=True)

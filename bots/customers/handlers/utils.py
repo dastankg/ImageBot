@@ -118,10 +118,7 @@ async def save_file_to_post(shop_id, relative_path, latitude=None, longitude=Non
                 await sync_to_async(
                     lambda: post.image.save(file_name, file_content, save=True)
                 )()
-            else:
-                await sync_to_async(
-                    lambda: post.document.save(file_name, file_content, save=True)
-                )()
+
 
         if os.path.exists(file_path):
             os.remove(file_path)
