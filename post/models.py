@@ -54,6 +54,17 @@ class Post(BasePost):
 class PostAgent(BasePost):
     agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name="posts")
     shop = models.CharField(max_length=100)
+    post_type = models.CharField(
+        max_length=100,
+        choices=[
+            ("ТМ до", "ТМ до"),
+            ("ТМ после", "ТМ после"),
+            ("ДПМ", "ДПМ"),
+        ],
+        blank=True,
+        null=True,
+        default="ТМ до",
+    )
 
     def __str__(self):
         return f"Изображение для {self.shop} ({self.id})"

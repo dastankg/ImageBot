@@ -27,7 +27,6 @@ redis_client = redis_async.Redis(
     password=config.redis.redis_password,
 )
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -144,31 +143,28 @@ async def download_photo(file_url: str, filename: str):
 
 
 async def save_photo_to_post(
-    agent_id, shop_name, relative_path, latitude=None, longitude=None
+    agent_id, shop_name, relative_path, type_photo, latitude=None, longitude=None
 ):
     try:
         agent = await sync_to_async(lambda: Agent.objects.get(id=agent_id))()
 
         post = PostAgent(
-            agent=agent, shop=shop_name, latitude=latitude, longitude=longitude
+            agent=agent,
+            shop=shop_name,
+            latitude=latitude,
+            longitude=longitude,
+            post_type=type_photo.replace("📸 ", "").strip(),
         )
         await sync_to_async(post.save)()
 
         file_path = f"media/{relative_path}"
         file_name = os.path.basename(file_path)
 
-        file_extension = os.path.splitext(file_name.lower())[1]
-        image_extensions = [".jpg", ".jpeg", ".png", ".heic", ".tiff", ".bmp"]
         with open(file_path, "rb") as f:
             file_content = File(f)
-            if any(file_extension == ext for ext in image_extensions):
-                await sync_to_async(
-                    lambda: post.image.save(file_name, file_content, save=True)
-                )()
-            else:
-                await sync_to_async(
-                    lambda: post.document.save(file_name, file_content, save=True)
-                )()
+            await sync_to_async(
+                lambda: post.image.save(file_name, file_content, save=True)
+            )()
 
         if os.path.exists(file_path):
             os.remove(file_path)

@@ -6,4 +6,5 @@ class UserState(StatesGroup):
     authorized = State()
     waiting_for_shopName = State()
     waiting_for_location = State()
+    waiting_for_type_photo = State()
     waiting_for_photo = State()

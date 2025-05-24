@@ -14,6 +14,7 @@ class RedisConfig:
     redis_db: int
     redis_password: str
 
+
 @dataclass
 class Config:
     tg_bot: TgBot
@@ -34,4 +35,3 @@ def load_config(path: str | None = None, bot_number=1) -> Config:
             redis_password=env("REDIS_PASSWORD", ""),
         ),
     )
-

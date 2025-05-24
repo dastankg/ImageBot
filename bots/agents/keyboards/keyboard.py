@@ -1,4 +1,10 @@
-from aiogram.types import KeyboardButton, ReplyKeyboardMarkup
+from aiogram.filters.callback_data import CallbackData
+from aiogram.types import (
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 
 
 def get_main_keyboard() -> ReplyKeyboardMarkup:
@@ -47,4 +53,17 @@ def get_photo_keyboard() -> ReplyKeyboardMarkup:
             [KeyboardButton(text="🔙 Назад")],
         ],
         resize_keyboard=True,
+    )
+
+
+def get_photo_type_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📸 ТМ до")],
+            [KeyboardButton(text="📸 ТМ после")],
+            [KeyboardButton(text="📸 ДПМ")],
+            [KeyboardButton(text="🔙 Назад")],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
     )

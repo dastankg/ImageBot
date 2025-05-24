@@ -2,7 +2,7 @@ from django.contrib import admin
 from django import forms
 from django.utils.safestring import mark_safe
 
-from post.models import Post
+from post.models import Post, PostAgent
 from shop.models import Shop, Telephone, Agent, Store
 from shop.utils import export_posts_to_excel, export_agent_posts_to_excel
 
@@ -11,7 +11,6 @@ class TelephoneInline(admin.TabularInline):
     model = Telephone
     extra = 1
     fields = ("number", "is_owner")
-
 
 
 class PostInline(admin.TabularInline):
@@ -29,11 +28,29 @@ class PostInline(admin.TabularInline):
 
     def image_preview(self, obj):
         if obj.image:
-            url = obj.image.url if hasattr(obj.image, 'url') else f"/media/{obj.image}"
+            url = obj.image.url if hasattr(obj.image, "url") else f"/media/{obj.image}"
             return mark_safe(f'<a href="{url}" target="_blank">Посмотреть</a>')
         return "-"
 
 
+class PostAgentInline(admin.TabularInline):
+    model = PostAgent
+    extra = 1
+    fields = ("post_id", "shop", "post_type", "created", "address", "image_preview")
+    readonly_fields = ("post_id", "created", "address", "image_preview")
+    ordering = ("-created",)
+
+    def post_id(self, obj):
+        if obj.id:
+            url = f"/admin/post/postagent/{obj.id}/change/"
+            return mark_safe(f'<a href="{url}">{obj.id}</a>')
+        return "-"
+
+    def image_preview(self, obj):
+        if obj.image:
+            url = obj.image.url if hasattr(obj.image, "url") else f"/media/{obj.image}"
+            return mark_safe(f'<a href="{url}" target="_blank">Посмотреть</a>')
+        return "-"
 
 
 class ManyToManyStoreWidget(forms.SelectMultiple):
@@ -65,10 +82,9 @@ class AgentAdmin(admin.ModelAdmin):
     list_display = (
         "agent_name",
         "agent_number",
-
     )
     search_fields = ("agent_name", "agent_number")
-
+    inlines = [PostAgentInline]
     filter_horizontal = (
         "monday_stores",
         "tuesday_stores",

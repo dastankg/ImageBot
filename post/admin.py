@@ -11,10 +11,9 @@ class PostAdmin(admin.ModelAdmin):
     search_fields = ("shop__shop_name", "address")
 
 
-
 @admin.register(PostAgent)
 class PostAgentAdmin(admin.ModelAdmin):
     exclude = ("latitude", "longitude")
-    list_display = ("agent", "shop", "address", "created")
+    list_display = ("agent", "shop", "address", "post_type", "created")
     list_filter = ("agent", "created")
     search_fields = ("shop", "address")

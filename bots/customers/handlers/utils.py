@@ -18,7 +18,6 @@ from bots.tgConfig.redis_connect import redis_client
 logger = logging.getLogger(__name__)
 
 
-
 async def get_user_profile(telegram_id: int) -> dict[str, Any] | None:
     key = f"user:{telegram_id}"
     data = await redis_client.get(key)
@@ -66,6 +65,7 @@ async def save_user_profile(telegram_id: int, phone_number: str) -> bool:
         logger.error(f"Error saving user profile to Redis: {e}")
         return False
 
+
 async def download_file(file_url: str, filename: str):
     try:
         os.makedirs("media/documents", exist_ok=True)
@@ -99,10 +99,7 @@ async def download_file(file_url: str, filename: str):
         raise
 
 
-
-async def save_file_to_post(
-    shop_id, relative_path, latitude=None, longitude=None
-):
+async def save_file_to_post(shop_id, relative_path, latitude=None, longitude=None):
     try:
         shop = await sync_to_async(lambda: Shop.objects.get(id=shop_id))()
 

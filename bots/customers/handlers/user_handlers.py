@@ -7,10 +7,19 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import ContentType, Message
 from aiogram.fsm.context import FSMContext
 from bots.customers.fsm.fsm import CustomerState
-from bots.customers.handlers.utils import get_user_profile, get_shop_by_phone, save_user_profile, download_file, \
-    save_file_to_post
-from bots.customers.keyboards.keyboards import get_contact_keyboard, get_main_keyboard, get_file_keyboard, \
-    get_location_keyboard
+from bots.customers.handlers.utils import (
+    get_user_profile,
+    get_shop_by_phone,
+    save_user_profile,
+    download_file,
+    save_file_to_post,
+)
+from bots.customers.keyboards.keyboards import (
+    get_contact_keyboard,
+    get_main_keyboard,
+    get_file_keyboard,
+    get_location_keyboard,
+)
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -127,6 +136,7 @@ async def upload_file_command(message: Message, state: FSMContext):
         reply_markup=get_location_keyboard(),
     )
 
+
 @router.message(F.content_type == ContentType.LOCATION)
 async def handle_location(message: Message, state: FSMContext):
     telegram_id = message.from_user.id
@@ -153,7 +163,6 @@ async def handle_location(message: Message, state: FSMContext):
         "📍 Геолокация получена!\n\nТеперь отправьте файл.",
         reply_markup=get_file_keyboard(),
     )
-
 
 
 @router.message(F.content_type == ContentType.DOCUMENT)
@@ -257,11 +266,15 @@ async def handle_file(message: Message, bot: Bot, state: FSMContext):
         logger.exception(f"Ошибка в handle_file от {telegram_id}: {str(e)}")
         await message.answer("❗ Неизвестная ошибка.")
 
+
 @router.message(F.text == "🔙 Назад")
 async def back_command(message: Message, state: FSMContext):
     current_state = await state.get_state()
 
-    if current_state in [CustomerState.waiting_for_location, CustomerState.waiting_for_photo]:
+    if current_state in [
+        CustomerState.waiting_for_location,
+        CustomerState.waiting_for_photo,
+    ]:
         await state.set_state(CustomerState.authorized)
 
     await message.answer(

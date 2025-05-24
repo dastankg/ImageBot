@@ -22,6 +22,7 @@ from bots.agents.keyboards.keyboard import (
     get_location_keyboard,
     get_back_keyboard,
     get_photo_keyboard,
+    get_photo_type_keyboard,
 )
 
 router = Router()
@@ -154,10 +155,28 @@ async def handle_shop_name(message: Message, state: FSMContext):
         return
 
     await state.update_data(shop_name=shop_name)
-    await state.set_state(UserState.waiting_for_location)
+    await state.set_state(UserState.waiting_for_type_photo)
 
     await message.answer(
-        f"Название магазина '{shop_name}' сохранено.\n"
+        f"Название магазина '{shop_name}' сохранено.\nТеперь отправьте тип фото.",
+        reply_markup=get_photo_type_keyboard(),
+    )
+
+
+@router.message(UserState.waiting_for_type_photo)
+async def handle_type_photo(message: Message, state: FSMContext):
+    if message.text == "🔙 Назад":
+        await state.set_state(UserState.authorized)
+        await message.answer(
+            "Возвращаемся в главное меню.",
+            reply_markup=get_main_keyboard(),
+        )
+        return
+    type_photo = message.text
+    await state.update_data(type_photo=type_photo)
+    await state.set_state(UserState.waiting_for_location)
+    await message.answer(
+        f"Тип фотографии '{type_photo}' сохранено.\n"
         f"Теперь отправьте геолокацию магазина.",
         reply_markup=get_location_keyboard(),
     )
@@ -218,6 +237,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
         state_data = await state.get_data()
         location = state_data.get("location")
         shop_name = state_data.get("shop_name")
+        type_photo = state_data.get("type_photo")
 
         if not shop_name:
             logger.info(f"Нет названия магазина для user_id={telegram_id}")
@@ -230,7 +250,10 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
             await message.answer("Сначала отправьте геолокацию.")
             await state.set_state(UserState.waiting_for_location)
             return
-
+        if not type_photo:
+            logger.info(f"Нет типа фото для user_id={telegram_id}")
+            await message.answer("Сначала отправьте тип фото.")
+            await state.set_state(UserState.waiting_for_type_photo)
         agent = await get_agent_by_phone(user_profile["phone_number"])
         if not agent:
             logger.warning(f"Агент не найден: phone={user_profile['phone_number']}")
@@ -261,6 +284,7 @@ async def handle_photo(message: Message, bot: Bot, state: FSMContext):
                 agent.id,
                 shop_name,
                 relative_path,
+                type_photo,
                 latitude=location["latitude"],
                 longitude=location["longitude"],
             )
