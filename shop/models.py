@@ -89,3 +89,21 @@ class Agent(models.Model):
     class Meta:
         verbose_name = _("Merchandiser")
         verbose_name_plural = _("Merchandisers")
+
+
+class Report(models.Model):
+    shop = models.ForeignKey(Shop, on_delete=models.CASCADE, related_name="reports")
+    answer = models.CharField(
+        max_length=100,
+        choices=[
+            ("Нет", "Нет"),
+            ("Да", "Да"),
+        ],
+        blank=True,
+        null=True,
+        default="YES",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+

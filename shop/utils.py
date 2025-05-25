@@ -313,3 +313,76 @@ def export_agent_posts_to_excel(modeladmin, request, queryset):
 
     wb.save(response)
     return response
+
+def export_reports_to_excel(modeladmin, request, queryset):
+    start_date = request.POST.get("start_date")
+    end_date = request.POST.get("end_date")
+
+    if "apply" not in request.POST:
+        form = DateRangeForm()
+        context = {
+            "queryset": queryset,
+            "form": form,
+            "action_checkbox_name": admin.helpers.ACTION_CHECKBOX_NAME,
+        }
+        return render(request, "export_reports_date_range.html", context)
+
+    if start_date:
+        start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    if end_date:
+        end_date = datetime.strptime(end_date, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59
+        )
+
+    response = HttpResponse(
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = 'attachment; filename="reports.xlsx"'
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Отчеты"
+
+    columns = [
+        "ID",
+        "Магазин",
+        "Адрес магазина",
+        "Регион",
+        "Ответ",
+        "Дата создания",
+        "Дата обновления",
+    ]
+    ws.append(columns)
+
+    reports = []
+    for shop in queryset:
+        shop_reports = shop.reports.all()
+
+        if start_date:
+            shop_reports = shop_reports.filter(created_at__gte=start_date)
+        if end_date:
+            shop_reports = shop_reports.filter(created_at__lte=end_date)
+
+        reports.extend(shop_reports)
+
+    for report in reports:
+        local_created = localtime(report.created_at)
+        local_updated = localtime(report.updated_at)
+        ws.append(
+            [
+                report.id,
+                report.shop.shop_name,
+                report.shop.address,
+                report.shop.region,
+                report.answer or "",
+                local_created.strftime("%Y-%m-%d %H:%M:%S"),
+                local_updated.strftime("%Y-%m-%d %H:%M:%S"),
+            ]
+        )
+
+    column_widths = [5, 25, 30, 15, 10, 20, 20]
+    for i, width in enumerate(column_widths, 1):
+        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+
+    wb.save(response)
+    return response

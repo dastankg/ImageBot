@@ -170,7 +170,6 @@ async def save_photo_to_post(
                     lambda: post.image.save(file_name, file_content, save=True)
                 )()
 
-
         if os.path.exists(file_path):
             os.remove(file_path)
 

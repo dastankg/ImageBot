@@ -1,6 +1,8 @@
 import logging
 import os
 import uuid
+from django.utils import timezone
+import pytz
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
@@ -20,6 +22,10 @@ from bots.customers.keyboards.keyboards import (
     get_file_keyboard,
     get_location_keyboard,
 )
+from asgiref.sync import sync_to_async
+from datetime import datetime
+from shop.models import Report, Telephone
+
 
 router = Router()
 logger = logging.getLogger(__name__)
@@ -298,3 +304,55 @@ async def unknown_message(message: Message, state: FSMContext):
             "Отправьте фото или воспользуйтесь кнопками меню.",
             reply_markup=get_main_keyboard(),
         )
+
+
+@router.callback_query(lambda c: c.data in ["payment_yes", "payment_no"])
+async def handle_payment_callback(callback_query):
+
+    callback_data = callback_query.data
+    user_chat_id = callback_query.from_user.id
+
+    try:
+        telephone = await sync_to_async(
+            lambda: Telephone.objects.get(chat_id=user_chat_id, is_owner=True)
+        )()
+
+        shop = await sync_to_async(lambda: telephone.shop)()
+
+        if callback_data == "payment_yes":
+            answer = "Да"
+            response_text = "✅ Спасибо! Ваш ответ записан: получили оплату"
+        elif callback_data == "payment_no":
+            answer = "Нет"
+            response_text = "❌ Ваш ответ записан: не получили оплату"
+
+        bishkek_tz = pytz.timezone('Asia/Bishkek')
+        now = timezone.now().astimezone(bishkek_tz)
+        current_month = now.month
+        current_year = now.year
+
+        def create_report():
+            return Report.objects.create(
+                shop=shop,
+                answer=answer,
+            )
+
+        report = await sync_to_async(create_report)()
+
+        logger.info(
+            f"Создан новый отчет #{report.id} для магазина {shop.shop_name} за {current_month}/{current_year}: {answer}")
+
+        await callback_query.message.edit_text(
+            text=response_text,
+            reply_markup=None
+        )
+
+        await callback_query.answer()
+
+    except Telephone.DoesNotExist:
+        await callback_query.answer("Ошибка: пользователь не найден")
+        logger.error(f"Телефон с chat_id {user_chat_id} не найден")
+
+    except Exception as e:
+        await callback_query.answer("Произошла ошибка при записи ответа")
+        logger.error(f"Ошибка при обработке ответа от {user_chat_id}: {e}")

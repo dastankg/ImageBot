@@ -2,7 +2,7 @@ from datetime import datetime
 
 from asgiref.sync import sync_to_async
 
-from shop.models import Telephone
+from shop.models import Telephone, Report
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -43,7 +43,7 @@ def setup_scheduler(bot):
 
     scheduler.add_job(
         send_monthly_notification,
-        CronTrigger(day="19", hour="23", minute="50"),
+        CronTrigger(day="25", hour="20", minute="45"),
         kwargs={"bot": bot},
     )
 

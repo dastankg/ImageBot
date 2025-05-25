@@ -3,8 +3,8 @@ from django import forms
 from django.utils.safestring import mark_safe
 
 from post.models import Post, PostAgent
-from shop.models import Shop, Telephone, Agent, Store
-from shop.utils import export_posts_to_excel, export_agent_posts_to_excel
+from shop.models import Shop, Telephone, Agent, Store, Report
+from shop.utils import export_posts_to_excel, export_agent_posts_to_excel, export_reports_to_excel
 
 
 class TelephoneInline(admin.TabularInline):
@@ -56,14 +56,13 @@ class PostAgentInline(admin.TabularInline):
 class ManyToManyStoreWidget(forms.SelectMultiple):
     pass
 
-
 @admin.register(Shop)
 class ShopAdmin(admin.ModelAdmin):
     list_display = ("shop_name", "owner_name", "get_telephones", "address", "region")
     search_fields = ("shop_name", "owner_name")
     list_filter = ("shop_name",)
     inlines = [TelephoneInline, PostInline]
-    actions = [export_posts_to_excel]
+    actions = [export_posts_to_excel, export_reports_to_excel]
 
     def get_telephones(self, obj):
         return ", ".join(t.number for t in obj.telephones.all())
